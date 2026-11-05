@@ -276,11 +276,13 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--i
 
 .summary { display: grid; gap: 16px; background: var(--field); padding: 18px 20px 22px; }
 .summary h3 { margin: 0; font-weight: 400; font-size: 13px; letter-spacing: .26em; text-transform: uppercase; color: var(--ink-soft); text-align: center; }
-.summary ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+/* odpowiedzi w ramce (jak pola formularza), żeby odróżnić je od informacji pod spodem */
+.summary ul { list-style: none; margin: 0; padding: 16px 20px; display: grid; gap: 6px; border: 1px solid #e3e2da; background: #fff; }
 .summary li b { font-weight: 400; color: var(--ink-soft); }
 .info { font-size: 16px; line-height: 1.6; }
-.summary .info { text-align: center; color: var(--ink-soft); }
+.summary .info { text-align: center; color: var(--ink-soft); max-width: 46ch; justify-self: center; margin-top: 4px; }
 .summary .meta { text-align: center; font-size: 14px; color: var(--ink-soft); }
+.summary a { color: inherit; }
 .thanks { font-family: var(--script); font-size: 40px; text-align: center; line-height: 1.1; }
 
 @media (max-width: 520px) {
