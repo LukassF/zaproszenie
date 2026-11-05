@@ -1,38 +1,69 @@
 (() => {
-  'use strict';
+  "use strict";
 
   const cfg = window.RSVP_CONFIG || {};
-  const DEADLINE = new Date(cfg.deadline || '2027-06-30T23:59:59+02:00');
-  const PHONES = 'Ania: <a href="tel:+48518686497">518 686 497</a>, Łukasz: <a href="tel:+48798767199">798 767 199</a>';
+  const DEADLINE = new Date(cfg.deadline || "2027-06-30T23:59:59+02:00");
+  const PHONES =
+    'Ania: <a href="tel:+48518686497">518 686 497</a>, Łukasz: <a href="tel:+48798767199">798 767 199</a>';
 
   const DIETS = [
-    ['standard', 'Standardowa'],
-    ['vegetarian', 'Wegetariańska'],
-    ['vegan', 'Wegańska'],
-    ['gluten_free', 'Bezglutenowa'],
-    ['other', 'Inna (opisz w uwagach)'],
+    ["standard", "Standardowa"],
+    ["vegetarian", "Wegetariańska"],
+    ["vegan", "Wegańska"],
+    ["gluten_free", "Bezglutenowa"],
+    ["other", "Inna (opisz w uwagach)"],
   ];
   const dietLabel = (key) => (DIETS.find(([k]) => k === key) || DIETS[0])[1];
   const MAX_CHILDREN = 6;
 
   const $ = (sel) => document.querySelector(sel);
-  const statusEl = $('#rsvp-status');
-  const summaryEl = $('#rsvp-summary');
-  const form = $('#rsvp-form');
+  const statusEl = $("#rsvp-status");
+  const summaryEl = $("#rsvp-summary");
+  const form = $("#rsvp-form");
 
-  const token = (new URLSearchParams(location.search).get('t') || '').trim();
+  const token = (new URLSearchParams(location.search).get("t") || "").trim();
 
-  // ---------- Tryb demo (tylko lokalnie): ?t=demo, demo-solo, demo-plain, demo-locked ----------
+  // ---------- Tryb demo: ?t=demo, demo-solo, demo-plain, demo-locked ----------
 
-  const isLocal = /^(localhost|127\.0\.0\.1|\[::1\]|.*\.localhost|)$/.test(location.hostname);
+  const isLocal = /^(localhost|127\.0\.0\.1|\[::1\]|.*\.localhost|)$/.test(
+    location.hostname,
+  );
   const DEMO = {
-    'demo': { displayName: 'Lucynę i Michała Foberów', guests: ['Lucyna', 'Michał'], flags: { accommodation: true, plusOne: false, children: true } },
-    'demo-solo': { displayName: 'Pana Jana Kowalskiego', guests: ['Jan'], flags: { accommodation: false, plusOne: true, children: false } },
-    'demo-plain': { displayName: 'Lucynę i Michała Foberów', guests: ['Lucyna', 'Michał'], flags: { accommodation: false, plusOne: false, children: false } },
-    'demo-locked': {
-      displayName: 'Lucynę i Michała Foberów', guests: ['Lucyna', 'Michał'], flags: { accommodation: true, plusOne: false, children: false }, locked: true,
-      response: { guests: [{ name: 'Lucyna', attending: true, diet: 'vegetarian', allergies: 'orzechy' }, { name: 'Michał', attending: false }], transport: 'own', accommodation: true, comment: '' },
-      updatedAt: '2027-05-02T18:20:00Z',
+    demo: {
+      displayName: "Lucynę i Michała Foberów",
+      guests: ["Lucyna", "Michał"],
+      flags: { accommodation: true, plusOne: false, children: true },
+    },
+    "demo-solo": {
+      displayName: "Pana Jana Kowalskiego",
+      guests: ["Jan"],
+      flags: { accommodation: false, plusOne: true, children: false },
+    },
+    "demo-plain": {
+      displayName: "Lucynę i Michała Foberów",
+      guests: ["Lucyna", "Michał"],
+      flags: { accommodation: false, plusOne: false, children: false },
+    },
+    "demo-locked": {
+      displayName: "Lucynę i Michała Foberów",
+      guests: ["Lucyna", "Michał"],
+      flags: { accommodation: true, plusOne: false, children: false },
+      locked: true,
+      response: {
+        guests: [
+          {
+            name: "Lucyna",
+            attending: true,
+            diet: "vegetarian",
+            allergies: "orzechy",
+          },
+          { name: "Michał", attending: false },
+        ],
+        transport: "own",
+        accommodation: true,
+        comment: "",
+      },
+      updatedAt: "2027-05-02T18:20:00Z",
     },
   };
   const demoStore = {};
@@ -42,9 +73,16 @@
     async load(t) {
       if (isLocal && DEMO[t]) {
         await sleep(300);
-        return { ok: true, locked: false, response: null, updatedAt: null, ...DEMO[t], ...demoStore[t] };
+        return {
+          ok: true,
+          locked: false,
+          response: null,
+          updatedAt: null,
+          ...DEMO[t],
+          ...demoStore[t],
+        };
       }
-      if (!cfg.scriptUrl) throw new Error('Brak scriptUrl w config.js');
+      if (!cfg.scriptUrl) throw new Error("Brak scriptUrl w config.js");
       const res = await fetch(`${cfg.scriptUrl}?t=${encodeURIComponent(t)}`);
       return res.json();
     },
@@ -57,8 +95,8 @@
       }
       // text/plain = "simple request", więc przeglądarka nie wysyła preflightu, którego Apps Script nie obsługuje
       const res = await fetch(cfg.scriptUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify(payload),
       });
       return res.json();
@@ -71,41 +109,82 @@
     const el = document.createElement(tag);
     for (const [k, v] of Object.entries(attrs)) {
       if (v == null || v === false) continue;
-      if (k === 'class') el.className = v;
-      else if (k === 'html') el.innerHTML = v;
-      else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
-      else el.setAttribute(k, v === true ? '' : v);
+      if (k === "class") el.className = v;
+      else if (k === "html") el.innerHTML = v;
+      else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+      else el.setAttribute(k, v === true ? "" : v);
     }
     for (const c of children.flat()) if (c != null && c !== false) el.append(c);
     return el;
   }
 
   function pills(name, options, required = true) {
-    return h('div', { class: 'pills', role: 'radiogroup' },
-      options.map(([value, label], i) => h('label', { class: 'pill' },
-        h('input', { type: 'radio', name, value, required: required && i === 0 }),
-        h('span', {}, label))));
+    return h(
+      "div",
+      { class: "pills", role: "radiogroup" },
+      options.map(([value, label], i) =>
+        h(
+          "label",
+          { class: "pill" },
+          h("input", {
+            type: "radio",
+            name,
+            value,
+            required: required && i === 0,
+          }),
+          h("span", {}, label),
+        ),
+      ),
+    );
   }
 
-  const radioValue = (name) => (form.querySelector(`input[name="${name}"]:checked`) || {}).value;
+  const radioValue = (name) =>
+    (form.querySelector(`input[name="${name}"]:checked`) || {}).value;
   function setRadio(name, value) {
     const el = form.querySelector(`input[name="${name}"][value="${value}"]`);
     if (el) el.checked = true;
   }
 
   function dietFields(prefix) {
-    return h('div', { class: 'row' },
-      h('label', { class: 'field' }, h('span', {}, 'Dieta'),
-        h('select', { name: `${prefix}-diet` }, DIETS.map(([v, l]) => h('option', { value: v }, l)))),
-      h('label', { class: 'field' }, h('span', {}, 'Alergie / uwagi'),
-        h('input', { type: 'text', name: `${prefix}-allergies`, maxlength: 300, autocomplete: 'off' })));
+    return h(
+      "div",
+      { class: "row" },
+      h(
+        "label",
+        { class: "field" },
+        h("span", {}, "Dieta"),
+        h(
+          "select",
+          { name: `${prefix}-diet` },
+          DIETS.map(([v, l]) => h("option", { value: v }, l)),
+        ),
+      ),
+      h(
+        "label",
+        { class: "field" },
+        h("span", {}, "Alergie / uwagi"),
+        h("input", {
+          type: "text",
+          name: `${prefix}-allergies`,
+          maxlength: 300,
+          autocomplete: "off",
+        }),
+      ),
+    );
   }
 
-  const fmtDate = (iso) => new Date(iso).toLocaleString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const fmtDate = (iso) =>
+    new Date(iso).toLocaleString("pl-PL", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
 
   function showStatus(html, error = false) {
     statusEl.innerHTML = html;
-    statusEl.classList.toggle('note--error', error);
+    statusEl.classList.toggle("note--error", error);
     statusEl.hidden = false;
   }
 
@@ -119,132 +198,292 @@
     form.replaceChildren();
 
     invite.guests.forEach((name, i) => {
-      form.append(h('fieldset', { class: 'person', 'data-i': i },
-        i === 0 ? h('legend', {}, many ? 'Kto z Was będzie z nami?' : 'Czy będziesz z nami?') : null,
-        h('div', { class: 'person__name' }, name),
-        pills(`att-${i}`, many ? [['yes', 'Przyjdzie'], ['no', 'Nie przyjdzie']] : [['yes', 'Przyjdę'], ['no', 'Nie przyjdę']]),
-        h('div', { class: 'person__diet', 'data-when': 'self' }, dietFields(`p${i}`))));
+      form.append(
+        h(
+          "fieldset",
+          { class: "person", "data-i": i },
+          i === 0
+            ? h(
+                "legend",
+                {},
+                many ? "Kto z Was będzie z nami?" : "Czy będziesz z nami?",
+              )
+            : null,
+          h("div", { class: "person__name" }, name),
+          pills(
+            `att-${i}`,
+            many
+              ? [
+                  ["yes", "Przyjdzie"],
+                  ["no", "Nie przyjdzie"],
+                ]
+              : [
+                  ["yes", "Przyjdę"],
+                  ["no", "Nie przyjdę"],
+                ],
+          ),
+          h(
+            "div",
+            { class: "person__diet", "data-when": "self" },
+            dietFields(`p${i}`),
+          ),
+        ),
+      );
     });
 
     if (f.plusOne) {
-      form.append(h('fieldset', { 'data-when': 'any' },
-        h('legend', {}, 'Osoba towarzysząca'),
-        pills('plus', many ? [['yes', 'Przyjdziemy z osobą towarzyszącą'], ['no', 'Bez osoby towarzyszącej']] : [['yes', 'Przyjdę z osobą towarzyszącą'], ['no', 'Przyjdę sam/sama']]),
-        h('div', { class: 'stack', 'data-when': 'plus' },
-          h('label', { class: 'field' }, h('span', {}, 'Imię i nazwisko'),
-            h('input', { type: 'text', name: 'plus-name', maxlength: 100, required: true, autocomplete: 'off' })),
-          dietFields('plus'))));
+      form.append(
+        h(
+          "fieldset",
+          { "data-when": "any" },
+          h("legend", {}, "Osoba towarzysząca"),
+          pills(
+            "plus",
+            many
+              ? [
+                  ["yes", "Przyjdziemy z osobą towarzyszącą"],
+                  ["no", "Bez osoby towarzyszącej"],
+                ]
+              : [
+                  ["yes", "Przyjdę z osobą towarzyszącą"],
+                  ["no", "Przyjdę sam/sama"],
+                ],
+          ),
+          h(
+            "div",
+            { class: "stack", "data-when": "plus" },
+            h(
+              "label",
+              { class: "field" },
+              h("span", {}, "Imię i nazwisko"),
+              h("input", {
+                type: "text",
+                name: "plus-name",
+                maxlength: 100,
+                required: true,
+                autocomplete: "off",
+              }),
+            ),
+            dietFields("plus"),
+          ),
+        ),
+      );
     }
 
     if (f.children) {
-      const count = h('select', { name: 'kids' }, Array.from({ length: MAX_CHILDREN + 1 }, (_, n) => h('option', { value: n }, n === 0 ? 'Bez dzieci' : String(n))));
-      form.append(h('fieldset', { 'data-when': 'any' },
-        h('legend', {}, 'Dzieci'),
-        h('label', { class: 'field' }, h('span', {}, 'Liczba dzieci'), count),
-        h('div', { class: 'ages', id: 'ages' })));
-      count.addEventListener('change', renderAges);
-    }
-
-    form.append(h('fieldset', { 'data-when': 'any' },
-      h('legend', {}, 'Dojazd'),
-      pills('transport', many
-        ? [['own', 'Dojedziemy we własnym zakresie'], ['need', 'Potrzebujemy transportu']]
-        : [['own', 'Dojadę we własnym zakresie'], ['need', 'Potrzebuję transportu']])));
-
-    if (f.accommodation) {
-      form.append(h('fieldset', { 'data-when': 'any' },
-        h('legend', {}, 'Nocleg'),
-        pills('stay', many
-          ? [['yes', 'Chcemy skorzystać z noclegu'], ['no', 'Nie potrzebujemy noclegu']]
-          : [['yes', 'Chcę skorzystać z noclegu'], ['no', 'Nie potrzebuję noclegu']])));
+      const count = h(
+        "select",
+        { name: "kids" },
+        Array.from({ length: MAX_CHILDREN + 1 }, (_, n) =>
+          h("option", { value: n }, n === 0 ? "Bez dzieci" : String(n)),
+        ),
+      );
+      form.append(
+        h(
+          "fieldset",
+          { "data-when": "any" },
+          h("legend", {}, "Dzieci"),
+          h("label", { class: "field" }, h("span", {}, "Liczba dzieci"), count),
+          h("div", { class: "ages", id: "ages" }),
+        ),
+      );
+      count.addEventListener("change", renderAges);
     }
 
     form.append(
-      h('label', { class: 'field' }, h('span', {}, 'Wiadomość dla nas (opcjonalnie)'),
-        h('textarea', { name: 'comment', maxlength: 1000 })),
-      h('p', { class: 'err', id: 'form-error', hidden: true }),
-      h('button', { class: 'btn', type: 'submit' }, invite.response ? 'Zapisz zmiany' : 'Wyślij potwierdzenie'));
+      h(
+        "fieldset",
+        { "data-when": "any" },
+        h("legend", {}, "Dojazd"),
+        pills(
+          "transport",
+          many
+            ? [
+                ["own", "Dojedziemy we własnym zakresie"],
+                ["need", "Potrzebujemy transportu"],
+              ]
+            : [
+                ["own", "Dojadę we własnym zakresie"],
+                ["need", "Potrzebuję transportu"],
+              ],
+        ),
+      ),
+    );
 
-    form.addEventListener('change', syncVisibility);
+    if (f.accommodation) {
+      form.append(
+        h(
+          "fieldset",
+          { "data-when": "any" },
+          h("legend", {}, "Nocleg"),
+          pills(
+            "stay",
+            many
+              ? [
+                  ["yes", "Chcemy skorzystać z noclegu"],
+                  ["no", "Nie potrzebujemy noclegu"],
+                ]
+              : [
+                  ["yes", "Chcę skorzystać z noclegu"],
+                  ["no", "Nie potrzebuję noclegu"],
+                ],
+          ),
+        ),
+      );
+    }
+
+    form.append(
+      h(
+        "label",
+        { class: "field" },
+        h("span", {}, "Wiadomość dla nas (opcjonalnie)"),
+        h("textarea", { name: "comment", maxlength: 1000 }),
+      ),
+      h("p", { class: "err", id: "form-error", hidden: true }),
+      h(
+        "button",
+        { class: "btn", type: "submit" },
+        invite.response ? "Zapisz zmiany" : "Wyślij potwierdzenie",
+      ),
+    );
+
+    form.addEventListener("change", syncVisibility);
   }
 
   function renderAges(prev) {
-    const box = form.querySelector('#ages');
+    const box = form.querySelector("#ages");
     const n = Number(form.elements.kids.value);
-    const old = [...box.querySelectorAll('input')].map((i) => i.value);
+    const old = [...box.querySelectorAll("input")].map((i) => i.value);
     const values = Array.isArray(prev) ? prev : old;
-    box.replaceChildren(...Array.from({ length: n }, (_, i) => h('label', { class: 'field' },
-      h('span', {}, `Wiek dziecka ${n > 1 ? i + 1 : ''}`.trim()),
-      h('input', { type: 'number', name: `kid-${i}`, min: 0, max: 17, inputmode: 'numeric', required: true, value: values[i] ?? '' }))));
+    box.replaceChildren(
+      ...Array.from({ length: n }, (_, i) =>
+        h(
+          "label",
+          { class: "field" },
+          h("span", {}, `Wiek dziecka ${n > 1 ? i + 1 : ""}`.trim()),
+          h("input", {
+            type: "number",
+            name: `kid-${i}`,
+            min: 0,
+            max: 17,
+            inputmode: "numeric",
+            required: true,
+            value: values[i] ?? "",
+          }),
+        ),
+      ),
+    );
   }
 
   // Sekcje zależne od obecności: chowamy i wyłączamy (wyłączone pola nie blokują walidacji)
   function syncVisibility() {
-    const anyComing = invite.guests.some((_, i) => radioValue(`att-${i}`) === 'yes');
-    form.querySelectorAll('.person').forEach((fs, i) => toggle(fs.querySelector('[data-when="self"]'), radioValue(`att-${i}`) === 'yes'));
-    form.querySelectorAll('[data-when="any"]').forEach((el) => toggle(el, anyComing));
+    const anyComing = invite.guests.some(
+      (_, i) => radioValue(`att-${i}`) === "yes",
+    );
+    form
+      .querySelectorAll(".person")
+      .forEach((fs, i) =>
+        toggle(
+          fs.querySelector('[data-when="self"]'),
+          radioValue(`att-${i}`) === "yes",
+        ),
+      );
+    form
+      .querySelectorAll('[data-when="any"]')
+      .forEach((el) => toggle(el, anyComing));
     const plus = form.querySelector('[data-when="plus"]');
-    if (plus) toggle(plus, anyComing && radioValue('plus') === 'yes');
+    if (plus) toggle(plus, anyComing && radioValue("plus") === "yes");
   }
   function toggle(el, on) {
     el.hidden = !on;
-    el.querySelectorAll('input, select, textarea').forEach((i) => { i.disabled = !on; });
+    el.querySelectorAll("input, select, textarea").forEach((i) => {
+      i.disabled = !on;
+    });
   }
 
   function prefill(r) {
     r.guests.forEach((g, i) => {
-      setRadio(`att-${i}`, g.attending ? 'yes' : 'no');
+      setRadio(`att-${i}`, g.attending ? "yes" : "no");
       if (g.attending) {
-        form.elements[`p${i}-diet`].value = g.diet || 'standard';
-        form.elements[`p${i}-allergies`].value = g.allergies || '';
+        form.elements[`p${i}-diet`].value = g.diet || "standard";
+        form.elements[`p${i}-allergies`].value = g.allergies || "";
       }
     });
     if (invite.flags.plusOne && r.plusOne) {
-      setRadio('plus', r.plusOne.coming ? 'yes' : 'no');
+      setRadio("plus", r.plusOne.coming ? "yes" : "no");
       if (r.plusOne.coming) {
-        form.elements['plus-name'].value = r.plusOne.name || '';
-        form.elements['plus-diet'].value = r.plusOne.diet || 'standard';
-        form.elements['plus-allergies'].value = r.plusOne.allergies || '';
+        form.elements["plus-name"].value = r.plusOne.name || "";
+        form.elements["plus-diet"].value = r.plusOne.diet || "standard";
+        form.elements["plus-allergies"].value = r.plusOne.allergies || "";
       }
     }
     if (invite.flags.children && r.children) {
       form.elements.kids.value = String(r.children.count);
       renderAges(r.children.ages);
     }
-    if (r.transport) setRadio('transport', r.transport);
-    if (invite.flags.accommodation && typeof r.accommodation === 'boolean') setRadio('stay', r.accommodation ? 'yes' : 'no');
-    form.elements.comment.value = r.comment || '';
+    if (r.transport) setRadio("transport", r.transport);
+    if (invite.flags.accommodation && typeof r.accommodation === "boolean")
+      setRadio("stay", r.accommodation ? "yes" : "no");
+    form.elements.comment.value = r.comment || "";
   }
 
   function collect() {
-    const val = (name) => (form.elements[name] ? form.elements[name].value.trim() : '');
-    const guests = invite.guests.map((name, i) => radioValue(`att-${i}`) === 'yes'
-      ? { name, attending: true, diet: val(`p${i}-diet`), allergies: val(`p${i}-allergies`) }
-      : { name, attending: false });
+    const val = (name) =>
+      form.elements[name] ? form.elements[name].value.trim() : "";
+    const guests = invite.guests.map((name, i) =>
+      radioValue(`att-${i}`) === "yes"
+        ? {
+            name,
+            attending: true,
+            diet: val(`p${i}-diet`),
+            allergies: val(`p${i}-allergies`),
+          }
+        : { name, attending: false },
+    );
     const any = guests.some((g) => g.attending);
-    const out = { token, guests, plusOne: null, children: null, transport: null, accommodation: null, comment: val('comment') };
+    const out = {
+      token,
+      guests,
+      plusOne: null,
+      children: null,
+      transport: null,
+      accommodation: null,
+      comment: val("comment"),
+    };
     if (any) {
-      out.transport = radioValue('transport');
+      out.transport = radioValue("transport");
       if (invite.flags.plusOne) {
-        out.plusOne = radioValue('plus') === 'yes'
-          ? { coming: true, name: val('plus-name'), diet: val('plus-diet'), allergies: val('plus-allergies') }
-          : { coming: false };
+        out.plusOne =
+          radioValue("plus") === "yes"
+            ? {
+                coming: true,
+                name: val("plus-name"),
+                diet: val("plus-diet"),
+                allergies: val("plus-allergies"),
+              }
+            : { coming: false };
       }
       if (invite.flags.children) {
         const count = Number(form.elements.kids.value);
-        out.children = { count, ages: Array.from({ length: count }, (_, i) => Number(val(`kid-${i}`))) };
+        out.children = {
+          count,
+          ages: Array.from({ length: count }, (_, i) =>
+            Number(val(`kid-${i}`)),
+          ),
+        };
       }
-      if (invite.flags.accommodation) out.accommodation = radioValue('stay') === 'yes';
+      if (invite.flags.accommodation)
+        out.accommodation = radioValue("stay") === "yes";
     }
     return out;
   }
 
   async function onSubmit(e) {
     e.preventDefault();
-    const err = form.querySelector('#form-error');
+    const err = form.querySelector("#form-error");
     err.hidden = true;
     if (!form.checkValidity()) {
-      err.textContent = 'Uzupełnij proszę zaznaczone pola.';
+      err.textContent = "Uzupełnij proszę zaznaczone pola.";
       err.hidden = false;
       form.reportValidity();
       return;
@@ -252,19 +491,20 @@
     const btn = form.querySelector('button[type="submit"]');
     btn.disabled = true;
     const label = btn.textContent;
-    btn.textContent = 'Wysyłanie…';
+    btn.textContent = "Wysyłanie…";
     try {
       const payload = collect();
       const res = await api.save(payload);
-      if (!res.ok) throw new Error(res.error || 'server');
+      if (!res.ok) throw new Error(res.error || "server");
       invite.response = payload;
       invite.updatedAt = res.updatedAt;
       showSummary(true);
     } catch (ex) {
       console.error(ex);
-      const msg = ex.message === 'locked'
-        ? `Termin potwierdzeń minął. W razie zmian prosimy o telefon — ${PHONES}.`
-        : `Nie udało się wysłać odpowiedzi. Spróbuj ponownie za chwilę albo zadzwoń — ${PHONES}.`;
+      const msg =
+        ex.message === "locked"
+          ? `Termin potwierdzeń minął. W razie zmian prosimy o telefon — ${PHONES}.`
+          : `Nie udało się wysłać odpowiedzi. Spróbuj ponownie za chwilę albo zadzwoń — ${PHONES}.`;
       err.innerHTML = msg;
       err.hidden = false;
     } finally {
@@ -276,19 +516,40 @@
   // ---------- Podsumowanie ----------
 
   function describe(r) {
-    const items = r.guests.map((g) => [g.name, g.attending
-      ? `będzie · dieta: ${dietLabel(g.diet).toLowerCase()}${g.allergies ? ` (${g.allergies})` : ''}`
-      : 'nie będzie']);
+    const items = r.guests.map((g) => [
+      g.name,
+      g.attending
+        ? `będzie · dieta: ${dietLabel(g.diet).toLowerCase()}${g.allergies ? ` (${g.allergies})` : ""}`
+        : "nie będzie",
+    ]);
     if (r.plusOne) {
-      items.push(['Osoba towarzysząca', r.plusOne.coming
-        ? `${r.plusOne.name} · dieta: ${dietLabel(r.plusOne.diet).toLowerCase()}${r.plusOne.allergies ? ` (${r.plusOne.allergies})` : ''}`
-        : 'brak']);
+      items.push([
+        "Osoba towarzysząca",
+        r.plusOne.coming
+          ? `${r.plusOne.name} · dieta: ${dietLabel(r.plusOne.diet).toLowerCase()}${r.plusOne.allergies ? ` (${r.plusOne.allergies})` : ""}`
+          : "brak",
+      ]);
     }
-    if (r.children) items.push(['Dzieci', r.children.count ? `${r.children.count} (wiek: ${r.children.ages.join(', ')})` : 'brak']);
-    if (r.transport) items.push(['Dojazd', r.transport === 'need' ? 'potrzebny transport' : 'we własnym zakresie']);
-    if (typeof r.accommodation === 'boolean') items.push(['Nocleg', r.accommodation ? 'tak' : 'nie']);
-    if (r.comment) items.push(['Wiadomość', r.comment]);
-    return h('ul', {}, items.map(([k, v]) => h('li', {}, h('b', {}, `${k}: `), v)));
+    if (r.children)
+      items.push([
+        "Dzieci",
+        r.children.count
+          ? `${r.children.count} (wiek: ${r.children.ages.join(", ")})`
+          : "brak",
+      ]);
+    if (r.transport)
+      items.push([
+        "Dojazd",
+        r.transport === "need" ? "potrzebny transport" : "we własnym zakresie",
+      ]);
+    if (typeof r.accommodation === "boolean")
+      items.push(["Nocleg", r.accommodation ? "tak" : "nie"]);
+    if (r.comment) items.push(["Wiadomość", r.comment]);
+    return h(
+      "ul",
+      {},
+      items.map(([k, v]) => h("li", {}, h("b", {}, `${k}: `), v)),
+    );
   }
 
   function showSummary(justSaved = false) {
@@ -297,31 +558,58 @@
     const locked = isLocked();
     statusEl.hidden = true;
     form.hidden = true;
-    summaryEl.replaceChildren(h('div', { class: 'summary' },
-      justSaved ? h('p', { class: 'thanks' }, anyComing ? 'Dziękujemy!' : 'Dziękujemy za odpowiedź') : null,
-      h('h3', {}, justSaved ? 'Zapisaliśmy Waszą odpowiedź' : 'Wasza odpowiedź'),
-      describe(r),
-      invite.updatedAt ? h('p', { class: 'meta' }, `Zapisano ${fmtDate(invite.updatedAt)}`) : null,
-      locked
-        ? h('p', { class: 'meta', html: `Termin zmian minął 30 czerwca 2027. Gdyby coś się zmieniło, zadzwoń — ${PHONES}.` })
-        : h('button', { class: 'btn btn--ghost', type: 'button', onclick: editAgain }, 'Zmień odpowiedź')));
+    summaryEl.replaceChildren(
+      h(
+        "div",
+        { class: "summary" },
+        justSaved
+          ? h(
+              "p",
+              { class: "thanks" },
+              anyComing ? "Dziękujemy!" : "Dziękujemy za odpowiedź",
+            )
+          : null,
+        h(
+          "h3",
+          {},
+          justSaved ? "Zapisaliśmy Waszą odpowiedź" : "Wasza odpowiedź",
+        ),
+        describe(r),
+        invite.updatedAt
+          ? h("p", { class: "meta" }, `Zapisano ${fmtDate(invite.updatedAt)}`)
+          : null,
+        locked
+          ? h("p", {
+              class: "meta",
+              html: `Termin zmian minął 30 czerwca 2027. Gdyby coś się zmieniło, zadzwoń — ${PHONES}.`,
+            })
+          : h(
+              "button",
+              { class: "btn btn--ghost", type: "button", onclick: editAgain },
+              "Zmień odpowiedź",
+            ),
+      ),
+    );
     summaryEl.hidden = false;
   }
 
   function editAgain() {
     summaryEl.hidden = true;
     form.hidden = false;
-    form.querySelector('button[type="submit"]').textContent = 'Zapisz zmiany';
-    form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    form.querySelector('button[type="submit"]').textContent = "Zapisz zmiany";
+    form.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  const isLocked = () => Boolean(invite && invite.locked) || Date.now() > DEADLINE.getTime();
+  const isLocked = () =>
+    Boolean(invite && invite.locked) || Date.now() > DEADLINE.getTime();
 
   // ---------- Start ----------
 
   async function init() {
     if (!token) {
-      showStatus(`Aby potwierdzić przybycie, otwórz osobisty link lub zeskanuj kod QR z zaproszenia. Możesz też zadzwonić — ${PHONES}.`);
+      showStatus(
+        `Aby potwierdzić przybycie, otwórz osobisty link lub zeskanuj kod QR z zaproszenia. Możesz też zadzwonić — ${PHONES}.`,
+      );
       return;
     }
     let data;
@@ -329,17 +617,23 @@
       data = await api.load(token);
     } catch (ex) {
       console.error(ex);
-      showStatus(`Nie udało się wczytać zaproszenia. Odśwież stronę za chwilę albo zadzwoń — ${PHONES}.`, true);
+      showStatus(
+        `Nie udało się wczytać zaproszenia. Odśwież stronę za chwilę albo zadzwoń — ${PHONES}.`,
+        true,
+      );
       return;
     }
     if (!data || !data.ok) {
-      showStatus(`Ten link nie jest aktywny. Sprawdź, czy został skopiowany w całości, albo zadzwoń — ${PHONES}.`, true);
+      showStatus(
+        `Ten link nie jest aktywny. Sprawdź, czy został skopiowany w całości, albo zadzwoń — ${PHONES}.`,
+        true,
+      );
       return;
     }
 
     invite = data;
-    $('#guest-name').textContent = data.displayName.toUpperCase();
-    $('#guest').hidden = false;
+    $("#guest-name").textContent = data.displayName.toUpperCase();
+    $("#guest").hidden = false;
 
     if (data.response) {
       buildForm();
@@ -349,7 +643,9 @@
       return;
     }
     if (isLocked()) {
-      showStatus(`Termin potwierdzeń minął 30 czerwca 2027. Prosimy o kontakt telefoniczny — ${PHONES}.`);
+      showStatus(
+        `Termin potwierdzeń minął 30 czerwca 2027. Prosimy o kontakt telefoniczny — ${PHONES}.`,
+      );
       return;
     }
     buildForm();
@@ -360,10 +656,14 @@
 
   // Pokazuje stronę dopiero, gdy nazwa gościa jest wstawiona, a fonty wczytane (bez mignięcia)
   function reveal() {
-    const fontsReady = document.fonts ? document.fonts.ready : Promise.resolve();
-    fontsReady.then(() => document.documentElement.classList.remove('is-loading'));
+    const fontsReady = document.fonts
+      ? document.fonts.ready
+      : Promise.resolve();
+    fontsReady.then(() =>
+      document.documentElement.classList.remove("is-loading"),
+    );
   }
 
-  form.addEventListener('submit', onSubmit);
+  form.addEventListener("submit", onSubmit);
   init().finally(reveal);
 })();
