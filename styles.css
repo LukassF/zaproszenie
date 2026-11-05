@@ -92,9 +92,26 @@ a.quiet:hover { text-decoration: underline; text-decoration-thickness: 1px; text
 
 .guest { display: grid; gap: max(4.2cqw, 14px); margin-top: max(1.2cqw, 4px); }
 .guest[hidden] { display: none; }
-/* miejsce na nazwę gościa jest zarezerwowane; sama nazwa pojawia się płynnie, gdy przyjdzie z backendu */
-.guest { transition: opacity 1.2s ease; }
-.guest:not(.is-ready) { opacity: 0; }
+/* Zanim nazwa gościa przyjdzie z backendu: trzy pulsujące kropki; potem nazwa wyłania się z rozmycia */
+.dots { display: inline-flex; gap: .6em; align-items: center; height: 1.75em; vertical-align: top; }
+.dots i {
+  width: .26em; height: .26em;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: .12;
+  animation: dot 1.5s ease-in-out infinite;
+}
+.dots i:nth-child(2) { animation-delay: .2s; }
+.dots i:nth-child(3) { animation-delay: .4s; }
+@keyframes dot {
+  0%, 80%, 100% { opacity: .12; transform: scale(.75); }
+  40% { opacity: .6; transform: scale(1); }
+}
+.guest.is-new #guest-name { animation: name-in 1.4s cubic-bezier(.2, .7, .2, 1) both; }
+@keyframes name-in {
+  from { opacity: 0; filter: blur(6px); letter-spacing: .32em; }
+  to { opacity: 1; filter: blur(0); }
+}
 
 /* ---------- Imiona ---------- */
 
@@ -221,6 +238,40 @@ a.quiet:hover { text-decoration: underline; text-decoration-thickness: 1px; text
   padding: 14px 16px;
 }
 .note--error { color: var(--error); }
+
+/* Serce rysujące się jedną linią — jak w kalendarzu — póki zaproszenie się wczytuje */
+.loader { display: grid; justify-items: center; gap: 14px; padding: 18px 0 8px; }
+.loader[hidden] { display: none; }
+.loader__heart {
+  width: 46px; height: auto;
+  overflow: visible;
+  fill: none;
+  stroke: var(--ink-soft);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1 1;
+  animation: heart-draw 2.8s cubic-bezier(.45, 0, .55, 1) infinite;
+}
+@keyframes heart-draw {
+  0% { stroke-dashoffset: 1; }
+  45%, 60% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -1; }
+}
+.loader__text {
+  font-size: 12px;
+  letter-spacing: .3em;
+  padding-left: .3em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.btn .dots { height: 1em; margin-left: .4em; gap: .45em; vertical-align: baseline; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dots i { animation-duration: 3s; }
+  .loader__heart { animation: none; stroke-dashoffset: 0; }
+  .guest.is-new #guest-name { animation: none; }
+}
 .note a { color: inherit; }
 
 .rsvp form { display: grid; gap: 22px; }

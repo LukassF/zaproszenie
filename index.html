@@ -46,7 +46,7 @@
         <p class="t-sm">MAJĄ PRZYJEMNOŚĆ<br>ZAPROSIĆ</p>
         <div class="guest" id="guest">
           <p class="t-xs">SZ.P</p>
-          <p class="t-guest" id="guest-name">&nbsp;</p>
+          <p class="t-guest" id="guest-name"><span class="dots" role="status" aria-label="Wczytywanie"><i></i><i></i><i></i></span></p>
         </div>
       </div>
 
@@ -108,7 +108,11 @@
       <h2 class="t-md" id="rsvp-title">POTWIERDZENIE PRZYBYCIA</h2>
 
       <div class="rsvp" aria-live="polite">
-        <p class="note" id="rsvp-status">Wczytywanie zaproszenia…</p>
+        <div class="loader" id="rsvp-loader" role="status">
+          <svg class="loader__heart" viewBox="0 0 60 54" aria-hidden="true"><path pathLength="1" d="M30 51C17 42 4 32 3 19 2 8 13 2 21 6c4 2 7 6 9 11 2-5 5-9 10-11 9-4 18 3 17 14-1 13-14 22-27 31"/></svg>
+          <p class="loader__text">Wczytywanie zaproszenia</p>
+        </div>
+        <p class="note" id="rsvp-status" hidden></p>
         <div id="rsvp-summary" hidden></div>
         <form id="rsvp-form" novalidate hidden></form>
       </div>

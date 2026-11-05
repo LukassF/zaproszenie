@@ -20,6 +20,9 @@ const CONFIG = {
   MAX_CHILDREN: 6,
 };
 
+// Zmieniaj przy każdej zmianie kodu: odpowiedź backendu to pokazuje, więc widać, czy wdrożona jest nowa wersja.
+const BACKEND_VERSION = '2026-11-05 os_tow';
+
 const GUEST_HEADERS = ['token', 'nazwa', 'osoby', 'nocleg', 'osoba_tow', 'dzieci', 'link', 'qr', 'notatki'];
 const RESPONSE_HEADERS = [
   'token', 'nazwa', 'utworzono', 'zmieniono', 'edycje', 'osoby_razem', 'obecni', 'nieobecni', 'diety',
@@ -36,7 +39,6 @@ const DIETS = {
 
 // "+1" w kolumnie "osoby" = osoba towarzysząca, która sama wpisuje imię i nazwisko
 const isPlusSlot = (name) => /^\+\s*1$/.test(String(name).trim());
-const guestLabel = (g) => (isPlusSlot(g.name) ? (g.fullName ? `${g.fullName} (os. tow.)` : 'osoba towarzysząca') : g.name);
 
 const TOKEN_ALPHABET = 'abcdefghijkmnpqrstuvwxyz23456789'; // 32 znaki, bez l/o/0/1
 const TOKEN_LENGTH = 10;
@@ -251,9 +253,17 @@ function cell(v) {
 }
 
 function toRow(guest, d, createdAt, updatedAt, edits) {
-  const coming = d.guests.filter((g) => g.attending);
-  const headcount = coming.length + (d.plusOne && d.plusOne.coming ? 1 : 0) + (d.children ? d.children.count : 0);
   const dietText = (g) => DIETS[g.diet] + (g.allergies ? ` (${g.allergies})` : '');
+  // Osoby z imienia → obecni / nieobecni / diety; "+1" i osoba towarzysząca z pytania → kolumny os_tow
+  const named = d.guests.filter((g) => !isPlusSlot(g.name));
+  const coming = named.filter((g) => g.attending);
+  const companions = d.guests
+    .filter((g) => isPlusSlot(g.name))
+    .map((g) => (g.attending ? { name: g.fullName, diet: dietText(g) } : null));
+  if (d.plusOne) companions.push(d.plusOne.coming ? { name: d.plusOne.name, diet: dietText(d.plusOne) } : null);
+  const companionsComing = companions.filter(Boolean);
+  const headcount =
+    d.guests.filter((g) => g.attending).length + (d.plusOne && d.plusOne.coming ? 1 : 0) + (d.children ? d.children.count : 0);
   return [
     guest.token,
     cell(guest.displayName),
@@ -261,11 +271,11 @@ function toRow(guest, d, createdAt, updatedAt, edits) {
     updatedAt,
     edits,
     headcount,
-    cell(coming.map(guestLabel).join(', ')),
-    cell(d.guests.filter((g) => !g.attending).map(guestLabel).join(', ')),
-    cell(coming.map((g) => `${guestLabel(g)}: ${dietText(g)}`).join('; ')),
-    cell(d.plusOne ? (d.plusOne.coming ? d.plusOne.name : 'nie') : ''),
-    cell(d.plusOne && d.plusOne.coming ? dietText(d.plusOne) : ''),
+    cell(coming.map((g) => g.name).join(', ')),
+    cell(named.filter((g) => !g.attending).map((g) => g.name).join(', ')),
+    cell(coming.map((g) => `${g.name}: ${dietText(g)}`).join('; ')),
+    cell(companions.length ? companionsComing.map((c) => c.name).join(', ') || 'nie' : ''),
+    cell(companionsComing.map((c) => (companionsComing.length > 1 ? `${c.name}: ${c.diet}` : c.diet)).join('; ')),
     d.children ? d.children.count : '',
     d.children ? d.children.ages.join(', ') : '',
     d.transport === 'need' ? 'potrzebny' : d.transport === 'own' ? 'własny' : '',
@@ -288,7 +298,7 @@ function notify(guest, d, isUpdate) {
     `Nie przychodzą: ${row[7] || '—'}`,
     `Diety: ${row[8] || '—'}`,
   ];
-  if (d.plusOne) lines.push(`Osoba towarzysząca: ${row[9]}${row[10] ? ' — ' + row[10] : ''}`);
+  if (row[9]) lines.push(`Osoba towarzysząca: ${row[9]}${row[10] ? ' — ' + row[10] : ''}`);
   if (d.children) lines.push(`Dzieci: ${d.children.count}${d.children.count ? ' (wiek: ' + row[12] + ')' : ''}`);
   if (d.transport) lines.push(`Transport: ${row[13]}`);
   if (d.accommodation !== null) lines.push(`Nocleg: ${row[14]}`);
@@ -390,5 +400,6 @@ function newToken() {
 function isLocked() { return Date.now() > CONFIG.DEADLINE.getTime(); }
 
 function json(obj) {
-  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+  const body = Object.assign({}, obj, { version: BACKEND_VERSION });
+  return ContentService.createTextOutput(JSON.stringify(body)).setMimeType(ContentService.MimeType.JSON);
 }

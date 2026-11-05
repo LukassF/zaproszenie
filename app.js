@@ -85,7 +85,7 @@
   const api = {
     async load(t) {
       if (isLocal && DEMO[t]) {
-        await sleep(300);
+        await sleep(1500); // jak prawdziwy backend — widać loader
         return {
           ok: true,
           locked: false,
@@ -215,11 +215,16 @@
     },
   };
 
-  function showGuest(displayName) {
-    $("#guest-name").textContent = displayName.toUpperCase();
+  // fresh: nazwa zastępuje kropki ładowania, więc wyłania się z animacją
+  function showGuest(displayName, fresh = false) {
+    const nameEl = $("#guest-name");
+    if (fresh && nameEl.querySelector(".dots"))
+      $("#guest").classList.add("is-new");
+    nameEl.textContent = displayName.toUpperCase();
     $("#guest").hidden = false;
-    $("#guest").classList.add("is-ready");
   }
+  const dots = () =>
+    h("span", { class: "dots", "aria-hidden": "true" }, h("i"), h("i"), h("i"));
   const hideGuest = () => {
     $("#guest").hidden = true;
   };
@@ -554,7 +559,7 @@
     const btn = form.querySelector('button[type="submit"]');
     btn.disabled = true;
     const label = btn.textContent;
-    btn.textContent = "Wysyłanie…";
+    btn.replaceChildren("Wysyłanie", dots());
     try {
       const payload = collect();
       const res = await api.save(payload);
@@ -702,7 +707,7 @@
     }
 
     invite = data;
-    showGuest(data.displayName);
+    showGuest(data.displayName, true);
     storage.set(NAME_KEY, data.displayName);
 
     if (data.response) {
@@ -735,6 +740,9 @@
   }
 
   form.addEventListener("submit", onSubmit);
-  init(); // synchroniczny początek init() chowa/wstawia nazwę jeszcze przed reveal()
+  // synchroniczny początek init() chowa/wstawia nazwę jeszcze przed reveal()
+  init().finally(() => {
+    $("#rsvp-loader").hidden = true;
+  });
   reveal();
 })();
