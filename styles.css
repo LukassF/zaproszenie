@@ -92,6 +92,9 @@ a.quiet:hover { text-decoration: underline; text-decoration-thickness: 1px; text
 
 .guest { display: grid; gap: max(4.2cqw, 14px); margin-top: max(1.2cqw, 4px); }
 .guest[hidden] { display: none; }
+/* miejsce na nazwę gościa jest zarezerwowane; sama nazwa pojawia się płynnie, gdy przyjdzie z backendu */
+.guest { transition: opacity 1.2s ease; }
+.guest:not(.is-ready) { opacity: 0; }
 
 /* ---------- Imiona ---------- */
 

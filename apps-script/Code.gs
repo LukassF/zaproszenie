@@ -34,6 +34,10 @@ const DIETS = {
   other: 'inna',
 };
 
+// "+1" w kolumnie "osoby" = osoba towarzysząca, która sama wpisuje imię i nazwisko
+const isPlusSlot = (name) => /^\+\s*1$/.test(String(name).trim());
+const guestLabel = (g) => (isPlusSlot(g.name) ? (g.fullName ? `${g.fullName} (os. tow.)` : 'osoba towarzysząca') : g.name);
+
 const TOKEN_ALPHABET = 'abcdefghijkmnpqrstuvwxyz23456789'; // 32 znaki, bez l/o/0/1
 const TOKEN_LENGTH = 10;
 
@@ -111,9 +115,13 @@ function sanitize(body, guest) {
   const guests = guest.people.map((name, i) => {
     const g = body.guests[i] || {};
     if (typeof g.attending !== 'boolean') throw validationError('attending');
-    return g.attending
-      ? { name, attending: true, diet: diet(g.diet), allergies: str(g.allergies, 300) }
-      : { name, attending: false };
+    if (!g.attending) return { name, attending: false };
+    const out = { name, attending: true, diet: diet(g.diet), allergies: str(g.allergies, 300) };
+    if (isPlusSlot(name)) {
+      out.fullName = str(g.fullName, 100);
+      if (!out.fullName) throw validationError('plusName');
+    }
+    return out;
   });
   const any = guests.some((g) => g.attending);
   const out = { guests, plusOne: null, children: null, transport: null, accommodation: null, comment: str(body.comment, 1000) };
@@ -170,22 +178,49 @@ const truthy = (v) => v === true || /^(tak|true|x|1|yes)$/i.test(String(v).trim(
 
 function findGuest(rawToken) {
   const token = normToken(rawToken);
-  if (!token) return null;
+  return token ? loadGuests()[token] || null : null;
+}
+
+// Lista gości w pamięci podręcznej skryptu (czytanie arkusza to najwolniejsza część zapytania).
+// Czyścimy ją przy każdej ręcznej edycji arkusza (onEdit) i po generowaniu linków.
+const GUESTS_CACHE_KEY = 'guests';
+const GUESTS_CACHE_SECONDS = 600;
+
+function loadGuests() {
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get(GUESTS_CACHE_KEY);
+  if (hit) return JSON.parse(hit);
+
+  const guests = {};
   const sheet = guestsSheet();
-  if (!sheet || sheet.getLastRow() < 2) return null;
-  const col = headerIndex(sheet);
-  const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
-  const r = rows.find((row) => String(row[col.token]).trim().toLowerCase() === token);
-  if (!r) return null;
-  const people = String(r[col.osoby]).split(/[,;\n]/).map((s) => s.trim()).filter(Boolean);
-  const displayName = String(r[col.nazwa]).trim();
-  if (!people.length || !displayName) return null;
-  return {
-    token,
-    displayName,
-    people,
-    flags: { accommodation: truthy(r[col.nocleg]), plusOne: truthy(r[col.osoba_tow]), children: truthy(r[col.dzieci]) },
-  };
+  if (sheet && sheet.getLastRow() >= 2) {
+    const col = headerIndex(sheet);
+    const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
+    rows.forEach((r) => {
+      const token = normToken(r[col.token]);
+      const people = String(r[col.osoby]).split(/[,;\n]/).map((s) => s.trim()).filter(Boolean);
+      const displayName = String(r[col.nazwa]).trim();
+      if (!token || !people.length || !displayName) return;
+      guests[token] = {
+        token,
+        displayName,
+        people,
+        flags: { accommodation: truthy(r[col.nocleg]), plusOne: truthy(r[col.osoba_tow]), children: truthy(r[col.dzieci]) },
+      };
+    });
+  }
+  const json = JSON.stringify(guests);
+  if (json.length < 90000) cache.put(GUESTS_CACHE_KEY, json, GUESTS_CACHE_SECONDS); // limit wpisu w cache: 100 KB
+  return guests;
+}
+
+function clearGuestsCache() {
+  CacheService.getScriptCache().remove(GUESTS_CACHE_KEY);
+}
+
+/** Prosty wyzwalacz: każda ręczna zmiana w arkuszu (np. nazwa, osoby, pola wyboru) od razu trafia na stronę. */
+function onEdit() {
+  clearGuestsCache();
 }
 
 function findResponse(token) {
@@ -226,9 +261,9 @@ function toRow(guest, d, createdAt, updatedAt, edits) {
     updatedAt,
     edits,
     headcount,
-    cell(coming.map((g) => g.name).join(', ')),
-    cell(d.guests.filter((g) => !g.attending).map((g) => g.name).join(', ')),
-    cell(coming.map((g) => `${g.name}: ${dietText(g)}`).join('; ')),
+    cell(coming.map(guestLabel).join(', ')),
+    cell(d.guests.filter((g) => !g.attending).map(guestLabel).join(', ')),
+    cell(coming.map((g) => `${guestLabel(g)}: ${dietText(g)}`).join('; ')),
     cell(d.plusOne ? (d.plusOne.coming ? d.plusOne.name : 'nie') : ''),
     cell(d.plusOne && d.plusOne.coming ? dietText(d.plusOne) : ''),
     d.children ? d.children.count : '',
@@ -295,6 +330,7 @@ function setupSheets() {
   if (guests.getLastRow() < 2) {
     guests.getRange(2, col.nazwa + 1, 1, 2).setValues([['Lucynę i Michała Foberów', 'Lucyna, Michał']]);
   }
+  clearGuestsCache();
   SpreadsheetApp.getUi().alert('Gotowe. Uzupełnij arkusz „Goście”: nazwa = forma z zaproszenia (np. „Lucynę i Michała Foberów”), osoby = imiona po przecinku.');
 }
 
@@ -335,6 +371,7 @@ function generateLinks() {
   sheet.getRange(2, col.token + 1, n, 1).setValues(tokens);
   sheet.getRange(2, col.link + 1, n, 1).setValues(links);
   sheet.getRange(2, col.qr + 1, n, 1).setFormulas(qrs);
+  clearGuestsCache();
   ui.alert(`Gotowe. Nowych tokenów: ${created}. Linki i kody QR są w kolumnach „link” i „qr”.`);
 }
 

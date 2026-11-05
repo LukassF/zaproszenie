@@ -59,7 +59,7 @@ W arkuszu **Goście** jeden wiersz = jedno zaproszenie:
 | kolumna | co wpisać |
 |---|---|
 | `nazwa` | dokładnie jak na zaproszeniu, w bierniku: *Lucynę i Michała Foberów* |
-| `osoby` | imiona po przecinku: *Lucyna, Michał* (każda osoba potwierdza osobno) |
+| `osoby` | imiona po przecinku: *Lucyna, Michał* (każda osoba potwierdza osobno). Wpisz `+1` jako osobę (np. *Lubomir Jachowicz, +1*), żeby osoba towarzysząca sama podała imię i nazwisko |
 | `nocleg` / `osoba_tow` / `dzieci` | zaznacz, jeśli to zaproszenie ma widzieć to pytanie |
 | `notatki` | dla Was, strona tego nie czyta |
 

@@ -19,12 +19,15 @@
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- backend RSVP (Apps Script) przekierowuje na googleusercontent: łączymy się z oboma od razu -->
+  <link rel="preconnect" href="https://script.google.com" crossorigin>
+  <link rel="preconnect" href="https://script.googleusercontent.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Forum&family=Pinyon+Script&display=swap&subset=latin-ext" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
   <script>
-    // Strona pojawia się dopiero po wczytaniu nazwy gościa (app.js zdejmuje klasę); awaryjnie po 6 s.
+    // Strona pojawia się po wczytaniu fontów (app.js zdejmuje klasę); awaryjnie po 3 s.
     document.documentElement.classList.add('is-loading');
-    setTimeout(() => document.documentElement.classList.remove('is-loading'), 6000);
+    setTimeout(() => document.documentElement.classList.remove('is-loading'), 3000);
   </script>
 </head>
 <body>
@@ -41,9 +44,9 @@
 
       <div class="block">
         <p class="t-sm">MAJĄ PRZYJEMNOŚĆ<br>ZAPROSIĆ</p>
-        <div class="guest" id="guest" hidden>
+        <div class="guest" id="guest">
           <p class="t-xs">SZ.P</p>
-          <p class="t-guest" id="guest-name"></p>
+          <p class="t-guest" id="guest-name">&nbsp;</p>
         </div>
       </div>
 

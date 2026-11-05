@@ -14,6 +14,14 @@
     ["other", "Inna (opisz w uwagach)"],
   ];
   const dietLabel = (key) => (DIETS.find(([k]) => k === key) || DIETS[0])[1];
+  // "+1" w kolumnie "osoby" = osoba towarzysząca, która sama wpisuje imię i nazwisko
+  const isPlusSlot = (name) => /^\+\s*1$/.test(String(name).trim());
+  const guestLabel = (g) =>
+    isPlusSlot(g.name)
+      ? g.fullName
+        ? `${g.fullName} (osoba towarzysząca)`
+        : "Osoba towarzysząca"
+      : g.name;
   const MAX_CHILDREN = 6;
 
   const $ = (sel) => document.querySelector(sel);
@@ -38,6 +46,11 @@
       displayName: "Pana Jana Kowalskiego",
       guests: ["Jan"],
       flags: { accommodation: false, plusOne: true, children: false },
+    },
+    "demo-plus1": {
+      displayName: "Lubomira Jachowicza z Osobą Towarzyszącą",
+      guests: ["Lubomir Jachowicz", "+1"],
+      flags: { accommodation: false, plusOne: false, children: false },
     },
     "demo-plain": {
       displayName: "Lucynę i Michała Foberów",
@@ -182,6 +195,35 @@
       minute: "2-digit",
     });
 
+  // Nazwa gościa: zapamiętana w przeglądarce, żeby przy kolejnych wejściach była od razu
+  const NAME_KEY = `rsvp-name:${token}`;
+  const storage = {
+    get: (k) => {
+      try {
+        return localStorage.getItem(k);
+      } catch (_) {
+        return null;
+      }
+    },
+    set: (k, v) => {
+      try {
+        if (v == null) localStorage.removeItem(k);
+        else localStorage.setItem(k, v);
+      } catch (_) {
+        /* prywatne okno / zablokowane dane strony — działamy bez pamięci */
+      }
+    },
+  };
+
+  function showGuest(displayName) {
+    $("#guest-name").textContent = displayName.toUpperCase();
+    $("#guest").hidden = false;
+    $("#guest").classList.add("is-ready");
+  }
+  const hideGuest = () => {
+    $("#guest").hidden = true;
+  };
+
   function showStatus(html, error = false) {
     statusEl.innerHTML = html;
     statusEl.classList.toggle("note--error", error);
@@ -209,7 +251,11 @@
                 many ? "Kto z Was będzie z nami?" : "Czy będziesz z nami?",
               )
             : null,
-          h("div", { class: "person__name" }, name),
+          h(
+            "div",
+            { class: "person__name" },
+            isPlusSlot(name) ? "Osoba towarzysząca" : name,
+          ),
           pills(
             `att-${i}`,
             many
@@ -224,7 +270,21 @@
           ),
           h(
             "div",
-            { class: "person__diet", "data-when": "self" },
+            { class: "person__diet stack", "data-when": "self" },
+            isPlusSlot(name)
+              ? h(
+                  "label",
+                  { class: "field" },
+                  h("span", {}, "Imię i nazwisko"),
+                  h("input", {
+                    type: "text",
+                    name: `p${i}-name`,
+                    maxlength: 100,
+                    required: true,
+                    autocomplete: "off",
+                  }),
+                )
+              : null,
             dietFields(`p${i}`),
           ),
         ),
@@ -407,6 +467,8 @@
       if (g.attending) {
         form.elements[`p${i}-diet`].value = g.diet || "standard";
         form.elements[`p${i}-allergies`].value = g.allergies || "";
+        if (form.elements[`p${i}-name`])
+          form.elements[`p${i}-name`].value = g.fullName || "";
       }
     });
     if (invite.flags.plusOne && r.plusOne) {
@@ -437,6 +499,7 @@
             attending: true,
             diet: val(`p${i}-diet`),
             allergies: val(`p${i}-allergies`),
+            ...(isPlusSlot(name) && { fullName: val(`p${i}-name`) }),
           }
         : { name, attending: false },
     );
@@ -517,7 +580,7 @@
 
   function describe(r) {
     const items = r.guests.map((g) => [
-      g.name,
+      guestLabel(g),
       g.attending
         ? `będzie · dieta: ${dietLabel(g.diet).toLowerCase()}${g.allergies ? ` (${g.allergies})` : ""}`
         : "nie będzie",
@@ -607,16 +670,21 @@
 
   async function init() {
     if (!token) {
+      hideGuest();
       showStatus(
         `Aby potwierdzić przybycie, otwórz osobisty link lub zeskanuj kod QR z zaproszenia. Możesz też zadzwonić — ${PHONES}.`,
       );
       return;
     }
+    const cachedName = storage.get(NAME_KEY);
+    if (cachedName) showGuest(cachedName);
+
     let data;
     try {
       data = await api.load(token);
     } catch (ex) {
       console.error(ex);
+      if (!cachedName) hideGuest();
       showStatus(
         `Nie udało się wczytać zaproszenia. Odśwież stronę za chwilę albo zadzwoń — ${PHONES}.`,
         true,
@@ -624,6 +692,8 @@
       return;
     }
     if (!data || !data.ok) {
+      hideGuest();
+      storage.set(NAME_KEY, null);
       showStatus(
         `Ten link nie jest aktywny. Sprawdź, czy został skopiowany w całości, albo zadzwoń — ${PHONES}.`,
         true,
@@ -632,8 +702,8 @@
     }
 
     invite = data;
-    $("#guest-name").textContent = data.displayName.toUpperCase();
-    $("#guest").hidden = false;
+    showGuest(data.displayName);
+    storage.set(NAME_KEY, data.displayName);
 
     if (data.response) {
       buildForm();
@@ -654,7 +724,7 @@
     form.hidden = false;
   }
 
-  // Pokazuje stronę dopiero, gdy nazwa gościa jest wstawiona, a fonty wczytane (bez mignięcia)
+  // Pokazuje stronę, gdy fonty są wczytane (bez mignięcia fontów); nazwa gościa dochodzi osobno
   function reveal() {
     const fontsReady = document.fonts
       ? document.fonts.ready
@@ -665,5 +735,6 @@
   }
 
   form.addEventListener("submit", onSubmit);
-  init().finally(reveal);
+  init(); // synchroniczny początek init() chowa/wstawia nazwę jeszcze przed reveal()
+  reveal();
 })();
