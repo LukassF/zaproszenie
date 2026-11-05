@@ -1,19 +1,19 @@
 <!doctype html>
 <html lang="pl">
-<head>
-  <meta charset="utf-8">
-  <meta name="robots" content="noindex, nofollow">
-  <title>Ania & Łukasz · 19.08.2027</title>
-  <script>
-    // GitHub Pages serwuje ten plik dla nieistniejących ścieżek.
-    // Linki w formie …/zaproszenie/TOKEN (np. z kodów QR w Canvie) zamieniamy na …/zaproszenie/?t=TOKEN.
-    (function () {
-      var parts = location.pathname.replace(/\/+$/, '').split('/');
-      var token = parts.pop();
-      var base = parts.join('/') + '/';
-      location.replace(base + (/^[A-Za-z0-9]{6,32}$/.test(token) ? '?t=' + token : ''));
-    })();
-  </script>
-</head>
-<body style="background:#efeee9"></body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Ania & Łukasz · 19.08.2027</title>
+    <script>
+      (function () {
+        var parts = location.pathname.replace(/\/+$/, "").split("/");
+        var token = parts.pop();
+        var base = parts.join("/") + "/";
+        location.replace(
+          base + (/^[A-Za-z0-9]{6,32}$/.test(token) ? "?t=" + token : ""),
+        );
+      })();
+    </script>
+  </head>
+  <body style="background: #efeee9"></body>
 </html>
