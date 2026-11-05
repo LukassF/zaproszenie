@@ -1,6 +1,6 @@
 # Zaproszenie + RSVP — Ania & Łukasz, 19.08.2027
 
-Jednostronicowa strona z zaproszeniem (odwzorowanie kartki) i formularzem potwierdzenia.
+Strona z formularzem potwierdzenia przybycia (w stylu papierowego zaproszenia). Goście dojazdu nie wybierają, widzą tylko informację o zorganizowanym transporcie.
 Odpowiedzi trafiają do Arkusza Google, a Wy dostajecie maila po każdym potwierdzeniu lub zmianie.
 
 ```
@@ -71,7 +71,7 @@ Kody QR generuje zewnętrzny serwis api.qrserver.com, który widzi więc same li
 
 ## 5. Odpowiedzi
 
-Arkusz **Odpowiedzi**: jeden wiersz na zaproszenie (zmiana nadpisuje wiersz, licznik w `edycje`).
+Arkusz **Odpowiedzi**: jeden wiersz na zaproszenie (zmiana nadpisuje wiersz, licznik w `edycje`). Wartości trafiają do kolumn według nagłówków, więc kolumny można przestawiać, a zbędne (np. dawną `transport`) usunąć.
 `osoby_razem` = obecni + osoba towarzysząca + dzieci, więc łączna liczba gości to `=SUM(Odpowiedzi!F:F)`.
 
 ## Testowanie lokalnie

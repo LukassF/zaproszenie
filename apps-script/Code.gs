@@ -21,12 +21,12 @@ const CONFIG = {
 };
 
 // Zmieniaj przy każdej zmianie kodu: odpowiedź backendu to pokazuje, więc widać, czy wdrożona jest nowa wersja.
-const BACKEND_VERSION = '2026-11-05 os_tow';
+const BACKEND_VERSION = '2026-11-06 bez transportu';
 
 const GUEST_HEADERS = ['token', 'nazwa', 'osoby', 'nocleg', 'osoba_tow', 'dzieci', 'link', 'qr', 'notatki'];
 const RESPONSE_HEADERS = [
   'token', 'nazwa', 'utworzono', 'zmieniono', 'edycje', 'osoby_razem', 'obecni', 'nieobecni', 'diety',
-  'os_tow', 'os_tow_dieta', 'dzieci_liczba', 'dzieci_wiek', 'transport', 'nocleg', 'komentarz', 'json',
+  'os_tow', 'os_tow_dieta', 'dzieci_liczba', 'dzieci_wiek', 'nocleg', 'komentarz', 'json',
 ];
 
 const DIETS = {
@@ -84,8 +84,11 @@ function doPost(e) {
     if (existing && existing.edits >= CONFIG.MAX_EDITS) return json({ ok: false, error: 'too_many_edits' });
 
     const now = new Date();
-    const row = toRow(guest, data, existing ? existing.createdAt : now, now, existing ? existing.edits + 1 : 0);
+    const record = toRecord(guest, data, existing ? existing.createdAt : now, now, existing ? existing.edits + 1 : 0);
     const sheet = responsesSheet();
+    // Wiersz układamy według nagłówków w arkuszu — dodane, usunięte czy przestawione kolumny niczego nie rozjadą
+    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map((h) => String(h).trim().toLowerCase());
+    const row = headers.map((h) => (h in record ? record[h] : ''));
     if (existing) sheet.getRange(existing.row, 1, 1, row.length).setValues([row]);
     else sheet.appendRow(row);
 
@@ -126,11 +129,8 @@ function sanitize(body, guest) {
     return out;
   });
   const any = guests.some((g) => g.attending);
-  const out = { guests, plusOne: null, children: null, transport: null, accommodation: null, comment: str(body.comment, 1000) };
+  const out = { guests, plusOne: null, children: null, accommodation: null, comment: str(body.comment, 1000) };
   if (!any) return out;
-
-  if (body.transport !== 'own' && body.transport !== 'need') throw validationError('transport');
-  out.transport = body.transport;
 
   if (guest.flags.plusOne) {
     const p = body.plusOne || {};
@@ -252,7 +252,8 @@ function cell(v) {
   return /^[=+\-@\t\r]/.test(s) ? "'" + s : s;
 }
 
-function toRow(guest, d, createdAt, updatedAt, edits) {
+/** Jedna odpowiedź jako { nagłówek kolumny: wartość } (klucze = RESPONSE_HEADERS). */
+function toRecord(guest, d, createdAt, updatedAt, edits) {
   const dietText = (g) => DIETS[g.diet] + (g.allergies ? ` (${g.allergies})` : '');
   // Osoby z imienia → obecni / nieobecni / diety; "+1" i osoba towarzysząca z pytania → kolumny os_tow
   const named = d.guests.filter((g) => !isPlusSlot(g.name));
@@ -264,25 +265,24 @@ function toRow(guest, d, createdAt, updatedAt, edits) {
   const companionsComing = companions.filter(Boolean);
   const headcount =
     d.guests.filter((g) => g.attending).length + (d.plusOne && d.plusOne.coming ? 1 : 0) + (d.children ? d.children.count : 0);
-  return [
-    guest.token,
-    cell(guest.displayName),
-    createdAt,
-    updatedAt,
-    edits,
-    headcount,
-    cell(coming.map((g) => g.name).join(', ')),
-    cell(named.filter((g) => !g.attending).map((g) => g.name).join(', ')),
-    cell(coming.map((g) => `${g.name}: ${dietText(g)}`).join('; ')),
-    cell(companions.length ? companionsComing.map((c) => c.name).join(', ') || 'nie' : ''),
-    cell(companionsComing.map((c) => (companionsComing.length > 1 ? `${c.name}: ${c.diet}` : c.diet)).join('; ')),
-    d.children ? d.children.count : '',
-    d.children ? d.children.ages.join(', ') : '',
-    d.transport === 'need' ? 'potrzebny' : d.transport === 'own' ? 'własny' : '',
-    d.accommodation === null ? '' : d.accommodation ? 'tak' : 'nie',
-    cell(d.comment),
-    JSON.stringify(d),
-  ];
+  return {
+    token: guest.token,
+    nazwa: cell(guest.displayName),
+    utworzono: createdAt,
+    zmieniono: updatedAt,
+    edycje: edits,
+    osoby_razem: headcount,
+    obecni: cell(coming.map((g) => g.name).join(', ')),
+    nieobecni: cell(named.filter((g) => !g.attending).map((g) => g.name).join(', ')),
+    diety: cell(coming.map((g) => `${g.name}: ${dietText(g)}`).join('; ')),
+    os_tow: cell(companions.length ? companionsComing.map((c) => c.name).join(', ') || 'nie' : ''),
+    os_tow_dieta: cell(companionsComing.map((c) => (companionsComing.length > 1 ? `${c.name}: ${c.diet}` : c.diet)).join('; ')),
+    dzieci_liczba: d.children ? d.children.count : '',
+    dzieci_wiek: d.children ? d.children.ages.join(', ') : '',
+    nocleg: d.accommodation === null ? '' : d.accommodation ? 'tak' : 'nie',
+    komentarz: cell(d.comment),
+    json: JSON.stringify(d),
+  };
 }
 
 // ======================= Mail =======================
@@ -290,24 +290,23 @@ function toRow(guest, d, createdAt, updatedAt, edits) {
 function notify(guest, d, isUpdate) {
   const to = CONFIG.NOTIFY_EMAILS.filter((m) => /@/.test(m) && !/TWOJ-EMAIL|EMAIL-ANI/.test(m));
   if (!to.length) return;
-  const row = toRow(guest, d, '', '', 0);
+  const r = toRecord(guest, d, '', '', 0);
   const lines = [
     `${guest.displayName} — ${isUpdate ? 'ZMIANA odpowiedzi' : 'nowe potwierdzenie'}`,
     '',
-    `Przychodzą: ${row[6] || '—'}`,
-    `Nie przychodzą: ${row[7] || '—'}`,
-    `Diety: ${row[8] || '—'}`,
+    `Przychodzą: ${r.obecni || '—'}`,
+    `Nie przychodzą: ${r.nieobecni || '—'}`,
+    `Diety: ${r.diety || '—'}`,
   ];
-  if (row[9]) lines.push(`Osoba towarzysząca: ${row[9]}${row[10] ? ' — ' + row[10] : ''}`);
-  if (d.children) lines.push(`Dzieci: ${d.children.count}${d.children.count ? ' (wiek: ' + row[12] + ')' : ''}`);
-  if (d.transport) lines.push(`Transport: ${row[13]}`);
-  if (d.accommodation !== null) lines.push(`Nocleg: ${row[14]}`);
+  if (r.os_tow) lines.push(`Osoba towarzysząca: ${r.os_tow}${r.os_tow_dieta ? ' — ' + r.os_tow_dieta : ''}`);
+  if (d.children) lines.push(`Dzieci: ${d.children.count}${d.children.count ? ' (wiek: ' + r.dzieci_wiek + ')' : ''}`);
+  if (d.accommodation !== null) lines.push(`Nocleg: ${r.nocleg}`);
   if (d.comment) lines.push('', `Wiadomość: ${d.comment}`);
-  lines.push('', `Razem osób: ${row[5]}`, '', SpreadsheetApp.getActive().getUrl());
+  lines.push('', `Razem osób: ${r.osoby_razem}`, '', SpreadsheetApp.getActive().getUrl());
   try {
     MailApp.sendEmail({
       to: to.join(','),
-      subject: `[Wesele] ${guest.displayName} — ${isUpdate ? 'zmiana' : 'RSVP'} (${row[5]} os.)`,
+      subject: `[Wesele] ${guest.displayName} — ${isUpdate ? 'zmiana' : 'RSVP'} (${r.osoby_razem} os.)`,
       body: lines.join('\n'),
     });
   } catch (err) {

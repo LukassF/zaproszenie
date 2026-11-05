@@ -23,6 +23,8 @@
         : "Osoba towarzysząca"
       : g.name;
   const MAX_CHILDREN = 6;
+  const TRANSPORT_INFO =
+    "Zapewniamy zorganizowany transport dla gości. Liczba miejsc parkingowych jest ograniczona, dlatego bardzo prosimy o skorzystanie z niego zamiast przyjazdu własnym samochodem.";
 
   const $ = (sel) => document.querySelector(sel);
   const statusEl = $("#rsvp-status");
@@ -72,7 +74,6 @@
           },
           { name: "Michał", attending: false },
         ],
-        transport: "own",
         accommodation: true,
         comment: "",
       },
@@ -360,18 +361,7 @@
         "fieldset",
         { "data-when": "any" },
         h("legend", {}, "Dojazd"),
-        pills(
-          "transport",
-          many
-            ? [
-                ["own", "Dojedziemy we własnym zakresie"],
-                ["need", "Potrzebujemy transportu"],
-              ]
-            : [
-                ["own", "Dojadę we własnym zakresie"],
-                ["need", "Potrzebuję transportu"],
-              ],
-        ),
+        h("p", { class: "info" }, TRANSPORT_INFO),
       ),
     );
 
@@ -488,7 +478,6 @@
       form.elements.kids.value = String(r.children.count);
       renderAges(r.children.ages);
     }
-    if (r.transport) setRadio("transport", r.transport);
     if (invite.flags.accommodation && typeof r.accommodation === "boolean")
       setRadio("stay", r.accommodation ? "yes" : "no");
     form.elements.comment.value = r.comment || "";
@@ -514,12 +503,10 @@
       guests,
       plusOne: null,
       children: null,
-      transport: null,
       accommodation: null,
       comment: val("comment"),
     };
     if (any) {
-      out.transport = radioValue("transport");
       if (invite.flags.plusOne) {
         out.plusOne =
           radioValue("plus") === "yes"
@@ -605,11 +592,6 @@
           ? `${r.children.count} (wiek: ${r.children.ages.join(", ")})`
           : "brak",
       ]);
-    if (r.transport)
-      items.push([
-        "Dojazd",
-        r.transport === "need" ? "potrzebny transport" : "we własnym zakresie",
-      ]);
     if (typeof r.accommodation === "boolean")
       items.push(["Nocleg", r.accommodation ? "tak" : "nie"]);
     if (r.comment) items.push(["Wiadomość", r.comment]);
@@ -643,6 +625,7 @@
           justSaved ? "Zapisaliśmy Waszą odpowiedź" : "Wasza odpowiedź",
         ),
         describe(r),
+        anyComing ? h("p", { class: "info" }, TRANSPORT_INFO) : null,
         invite.updatedAt
           ? h("p", { class: "meta" }, `Zapisano ${fmtDate(invite.updatedAt)}`)
           : null,
@@ -677,7 +660,7 @@
     if (!token) {
       hideGuest();
       showStatus(
-        `Aby potwierdzić przybycie, otwórz osobisty link lub zeskanuj kod QR z zaproszenia. Możesz też zadzwonić — ${PHONES}.`,
+        "Aby potwierdzić przybycie, otwórz osobisty link lub zeskanuj kod QR z zaproszenia. Możesz też zadzwonić — numery poniżej.",
       );
       return;
     }
