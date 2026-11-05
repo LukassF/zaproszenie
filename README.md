@@ -12,7 +12,7 @@ apps-script/Code.gs              backend: wklejany do Arkusza Google
 
 ## Jak to działa
 
-- Każde zaproszenie ma **osobisty token** w linku: `…/zaproszenie/?t=k7f3qx9a2m`.
+- Każde zaproszenie ma **osobisty token** w linku: `…/zaproszenie/k7f3qx9a2m` (działa też `…/zaproszenie/?t=k7f3qx9a2m`). Forma bez `?` przechodzi przez przekierowania, np. kody QR z Canvy; zamienia ją na właściwy adres plik `404.html`.
 - Strona pyta backend o token i dostaje: nazwę z zaproszenia („Lucynę i Michała Foberów”), imiona osób i flagi (nocleg / osoba towarzysząca / dzieci). **Nic z tego nie pochodzi z linku**, więc nie da się podmienić nazwisk.
 - Pytania o nocleg, osobę towarzyszącą i dzieci widzą tylko goście z zaznaczoną flagą.
 - Po wysłaniu odpowiedź jest zapisywana pod tokenem. Ponowne wejście pokazuje zapisaną odpowiedź i pozwala ją zmienić do **30.06.2027**; potem formularz się blokuje (sprawdzane też po stronie serwera).

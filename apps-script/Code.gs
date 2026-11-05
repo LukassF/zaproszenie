@@ -328,7 +328,7 @@ function generateLinks() {
       tokens[i][0] = t;
       created++;
     }
-    const link = CONFIG.BASE_URL + '?t=' + tokens[i][0];
+    const link = CONFIG.BASE_URL + tokens[i][0]; // …/zaproszenie/TOKEN — przeżywa przekierowania (np. kody QR z Canvy)
     links.push([link]);
     qrs.push([`=IMAGE("https://api.qrserver.com/v1/create-qr-code/?size=600x600&margin=16&data=" & ENCODEURL("${link}"))`]);
   }
