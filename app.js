@@ -23,6 +23,8 @@
         : "Osoba towarzysząca"
       : g.name;
   const MAX_CHILDREN = 6;
+  // cyfry, spacje, myślniki, nawiasy, opcjonalny + na początku (to samo sprawdza Code.gs)
+  const PHONE_PATTERN = "\\+?[0-9][0-9 \\(\\)\\-]{6,18}";
   // Starsze odpowiedzi miały tylko wiek dzieci (ages), nowe mają listę z imionami
   const kidsOf = (c) =>
     c.list || (c.ages || []).map((age) => ({ name: "", age }));
@@ -392,6 +394,29 @@
 
     form.append(
       h(
+        "fieldset",
+        { "data-when": "any" },
+        h("legend", {}, "Kontakt"),
+        h(
+          "label",
+          { class: "field" },
+          h("span", {}, "Telefon kontaktowy"),
+          h("input", {
+            type: "tel",
+            name: "phone",
+            maxlength: 20,
+            required: true,
+            autocomplete: "tel",
+            inputmode: "tel",
+            pattern: PHONE_PATTERN,
+            placeholder: "np. 600 123 456",
+          }),
+        ),
+      ),
+    );
+
+    form.append(
+      h(
         "label",
         { class: "field" },
         h("span", {}, "Wiadomość dla nas (opcjonalnie)"),
@@ -504,6 +529,7 @@
     }
     if (invite.flags.accommodation && typeof r.accommodation === "boolean")
       setRadio("stay", r.accommodation ? "yes" : "no");
+    if (r.phone) form.elements.phone.value = r.phone;
     form.elements.comment.value = r.comment || "";
   }
 
@@ -531,6 +557,7 @@
       comment: val("comment"),
     };
     if (any) {
+      out.phone = val("phone");
       if (invite.flags.plusOne) {
         out.plusOne =
           radioValue("plus") === "yes"
@@ -621,6 +648,7 @@
       ]);
     if (typeof r.accommodation === "boolean")
       items.push(["Nocleg", r.accommodation ? "tak" : "nie"]);
+    if (r.phone) items.push(["Telefon", r.phone]);
     if (r.comment) items.push(["Wiadomość", r.comment]);
     return h(
       "ul",

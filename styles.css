@@ -234,7 +234,7 @@ legend {
 .stack { display: grid; gap: 14px; }
 .row { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
 
-input[type="text"], input[type="number"], select, textarea {
+input[type="text"], input[type="tel"], input[type="number"], select, textarea {
   font: inherit;
   font-size: 17px;
   color: var(--ink);

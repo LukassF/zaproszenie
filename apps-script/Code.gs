@@ -23,13 +23,13 @@ const CONFIG = {
 };
 
 // Zmieniaj przy każdej zmianie kodu: odpowiedź backendu to pokazuje, więc widać, czy wdrożona jest nowa wersja.
-const BACKEND_VERSION = '2026-11-08 osoby';
+const BACKEND_VERSION = '2026-11-08 telefon';
 
 const GUEST_HEADERS = ['token', 'nazwa', 'osoby', 'nocleg', 'osoba_tow', 'dzieci', 'link', 'qr', 'notatki'];
 // Odpowiedzi: jeden wiersz na zaproszenie (same liczby + json do edycji). Osoby: jeden wiersz na człowieka.
 const RESPONSE_HEADERS = [
-  'token', 'zaproszenie', 'utworzono', 'zmieniono', 'edycje', 'przychodzi', 'nie_przychodzi', 'dorosli', 'dzieci',
-  'nocleg', 'komentarz', 'json',
+  'token', 'zaproszenie', 'telefon', 'utworzono', 'zmieniono', 'edycje', 'przychodzi', 'nie_przychodzi', 'dorosli',
+  'dzieci', 'nocleg', 'komentarz', 'json',
 ];
 // Kolejność ma znaczenie dla formuł w „Podsumowaniu” (E = obecny, D = typ, F = dieta, I = nocleg)
 const PEOPLE_HEADERS = ['token', 'zaproszenie', 'osoba', 'typ', 'obecny', 'dieta', 'alergie', 'wiek', 'nocleg'];
@@ -136,6 +136,9 @@ function sanitize(body, guest) {
   const out = { guests, plusOne: null, children: null, accommodation: null, comment: str(body.comment, 1000) };
   if (!any) return out;
 
+  out.phone = str(body.phone, 20);
+  if (!/^\+?[0-9][0-9 ()\-]{6,18}$/.test(out.phone) || out.phone.replace(/\D/g, '').length < 7) throw validationError('phone');
+
   if (guest.flags.plusOne) {
     const p = body.plusOne || {};
     if (p.coming === true) {
@@ -167,14 +170,18 @@ function sanitize(body, guest) {
 function guestsSheet() { return SpreadsheetApp.getActive().getSheetByName(CONFIG.GUESTS_SHEET); }
 function responsesSheet() { return SpreadsheetApp.getActive().getSheetByName(CONFIG.RESPONSES_SHEET); }
 
-/** Arkusz o tej nazwie; jeśli go nie ma, tworzy go z nagłówkami. */
+/** Arkusz o tej nazwie; jeśli go nie ma, tworzy go z nagłówkami. Brakujące nagłówki (nowe kolumny) dopisuje na końcu. */
 function ensureSheet(name, headers) {
   const ss = SpreadsheetApp.getActive();
   const sh = ss.getSheetByName(name) || ss.insertSheet(name);
   if (sh.getLastRow() === 0) {
     sh.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
     sh.setFrozenRows(1);
+    return sh;
   }
+  const have = headerIndex(sh);
+  const missing = headers.filter((h) => !(h in have));
+  if (missing.length) sh.getRange(1, sh.getLastColumn() + 1, 1, missing.length).setValues([missing]).setFontWeight('bold');
   return sh;
 }
 
@@ -330,6 +337,7 @@ function toRecord(guest, d, createdAt, updatedAt, edits) {
   return {
     token: guest.token,
     zaproszenie: cell(guest.displayName),
+    telefon: cell(d.phone),
     utworzono: createdAt,
     zmieniono: updatedAt,
     edycje: edits,
@@ -358,7 +366,10 @@ function notify(guest, d, isUpdate) {
   coming.forEach((p) => lines.push(`  • ${label(p)}${p.dieta ? ' — ' + p.dieta : ''}${p.alergie ? ', alergie: ' + p.alergie : ''}`));
   if (!coming.length) lines.push('  —');
   if (notComing.length) lines.push('', `Nie przychodzą: ${notComing.map(label).join(', ')}`);
-  if (d.accommodation !== null) lines.push('', `Nocleg: ${r.nocleg}`);
+  const extra = [];
+  if (d.phone) extra.push(`Telefon: ${d.phone}`);
+  if (d.accommodation !== null) extra.push(`Nocleg: ${r.nocleg}`);
+  if (extra.length) lines.push('', ...extra);
   if (d.comment) lines.push('', `Wiadomość: ${d.comment}`);
   lines.push('', SpreadsheetApp.getActive().getUrl());
   try {
