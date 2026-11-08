@@ -16,18 +16,23 @@ const CONFIG = {
   DEADLINE: new Date('2027-06-30T23:59:59+02:00'),
   GUESTS_SHEET: 'Goście',
   RESPONSES_SHEET: 'Odpowiedzi',
+  PEOPLE_SHEET: 'Osoby',
+  SUMMARY_SHEET: 'Podsumowanie',
   MAX_EDITS: 30,
   MAX_CHILDREN: 6,
 };
 
 // Zmieniaj przy każdej zmianie kodu: odpowiedź backendu to pokazuje, więc widać, czy wdrożona jest nowa wersja.
-const BACKEND_VERSION = '2026-11-06 bez transportu';
+const BACKEND_VERSION = '2026-11-08 osoby';
 
 const GUEST_HEADERS = ['token', 'nazwa', 'osoby', 'nocleg', 'osoba_tow', 'dzieci', 'link', 'qr', 'notatki'];
+// Odpowiedzi: jeden wiersz na zaproszenie (same liczby + json do edycji). Osoby: jeden wiersz na człowieka.
 const RESPONSE_HEADERS = [
-  'token', 'nazwa', 'utworzono', 'zmieniono', 'edycje', 'osoby_razem', 'obecni', 'nieobecni', 'diety',
-  'os_tow', 'os_tow_dieta', 'dzieci_liczba', 'dzieci_wiek', 'nocleg', 'komentarz', 'json',
+  'token', 'zaproszenie', 'utworzono', 'zmieniono', 'edycje', 'przychodzi', 'nie_przychodzi', 'dorosli', 'dzieci',
+  'nocleg', 'komentarz', 'json',
 ];
+// Kolejność ma znaczenie dla formuł w „Podsumowaniu” (E = obecny, D = typ, F = dieta, I = nocleg)
+const PEOPLE_HEADERS = ['token', 'zaproszenie', 'osoba', 'typ', 'obecny', 'dieta', 'alergie', 'wiek', 'nocleg'];
 
 const DIETS = {
   standard: 'standardowa',
@@ -85,12 +90,11 @@ function doPost(e) {
 
     const now = new Date();
     const record = toRecord(guest, data, existing ? existing.createdAt : now, now, existing ? existing.edits + 1 : 0);
-    const sheet = responsesSheet();
-    // Wiersz układamy według nagłówków w arkuszu — dodane, usunięte czy przestawione kolumny niczego nie rozjadą
-    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map((h) => String(h).trim().toLowerCase());
-    const row = headers.map((h) => (h in record ? record[h] : ''));
+    const sheet = ensureSheet(CONFIG.RESPONSES_SHEET, RESPONSE_HEADERS);
+    const row = rowFor(sheet, record);
     if (existing) sheet.getRange(existing.row, 1, 1, row.length).setValues([row]);
     else sheet.appendRow(row);
+    writePeople(guest.token, toPeople(guest, data));
 
     notify(guest, data, Boolean(existing));
     return json({ ok: true, updatedAt: now.toISOString() });
@@ -144,12 +148,11 @@ function sanitize(body, guest) {
   }
 
   if (guest.flags.children) {
-    const c = body.children || {};
-    const count = Number(c.count);
-    if (!Number.isInteger(count) || count < 0 || count > CONFIG.MAX_CHILDREN) throw validationError('children');
-    const ages = Array.isArray(c.ages) ? c.ages.slice(0, count).map(Number) : [];
-    if (ages.length !== count || ages.some((a) => !Number.isInteger(a) || a < 0 || a > 17)) throw validationError('children');
-    out.children = { count, ages };
+    const list = (body.children && body.children.list) || [];
+    if (!Array.isArray(list) || list.length > CONFIG.MAX_CHILDREN) throw validationError('children');
+    const kids = list.map((k) => ({ name: str(k && k.name, 100), age: Number(k && k.age) }));
+    if (kids.some((k) => !k.name || !Number.isInteger(k.age) || k.age < 0 || k.age > 17)) throw validationError('children');
+    out.children = { count: kids.length, list: kids };
   }
 
   if (guest.flags.accommodation) {
@@ -163,6 +166,45 @@ function sanitize(body, guest) {
 
 function guestsSheet() { return SpreadsheetApp.getActive().getSheetByName(CONFIG.GUESTS_SHEET); }
 function responsesSheet() { return SpreadsheetApp.getActive().getSheetByName(CONFIG.RESPONSES_SHEET); }
+
+/** Arkusz o tej nazwie; jeśli go nie ma, tworzy go z nagłówkami. */
+function ensureSheet(name, headers) {
+  const ss = SpreadsheetApp.getActive();
+  const sh = ss.getSheetByName(name) || ss.insertSheet(name);
+  if (sh.getLastRow() === 0) {
+    sh.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+/** Wiersz ułożony według nagłówków w arkuszu: dodane, usunięte czy przestawione kolumny niczego nie rozjadą. */
+function rowFor(sheet, record) {
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map((h) => String(h).trim().toLowerCase());
+  return headers.map((h) => (h in record ? record[h] : ''));
+}
+
+/** Podmienia wiersze danego zaproszenia w „Osobach” — w tym samym miejscu, jeśli już tam były. */
+function writePeople(token, people) {
+  const sheet = ensureSheet(CONFIG.PEOPLE_SHEET, PEOPLE_HEADERS);
+  const tokenCol = headerIndex(sheet).token;
+  let at = 0;
+  if (sheet.getLastRow() >= 2 && tokenCol !== undefined) {
+    const tokens = sheet.getRange(2, tokenCol + 1, sheet.getLastRow() - 1, 1).getValues();
+    for (let i = tokens.length - 1; i >= 0; i--) {
+      if (normToken(tokens[i][0]) !== token) continue;
+      sheet.deleteRow(i + 2);
+      at = i + 2; // od dołu, więc na końcu zostaje pierwszy (najwyższy) wiersz
+    }
+  }
+  const rows = people.map((p) => rowFor(sheet, p));
+  if (at && at <= sheet.getLastRow()) {
+    sheet.insertRowsBefore(at, rows.length);
+    sheet.getRange(at, 1, rows.length, rows[0].length).setValues(rows);
+  } else {
+    rows.forEach((r) => sheet.appendRow(r));
+  }
+}
 
 function headerIndex(sheet) {
   const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
@@ -252,34 +294,50 @@ function cell(v) {
   return /^[=+\-@\t\r]/.test(s) ? "'" + s : s;
 }
 
+const yesNo = (v) => (v === null || v === undefined ? '' : v ? 'tak' : 'nie');
+
+/** Każda osoba z odpowiedzi osobno: goście z imienia, osoby towarzyszące, dzieci (klucze = PEOPLE_HEADERS). */
+function toPeople(guest, d) {
+  const base = { token: guest.token, zaproszenie: cell(guest.displayName), nocleg: yesNo(d.accommodation) };
+  const person = (osoba, typ, g) => ({
+    ...base,
+    osoba: cell(osoba),
+    typ,
+    obecny: yesNo(g.attending),
+    dieta: g.attending ? DIETS[g.diet] : '',
+    alergie: g.attending ? cell(g.allergies) : '',
+  });
+  const people = d.guests.map((g) =>
+    isPlusSlot(g.name)
+      ? person(g.attending ? g.fullName : 'osoba towarzysząca', 'osoba towarzysząca', g)
+      : person(g.name, 'gość', g),
+  );
+  if (d.plusOne) {
+    const p = d.plusOne;
+    people.push(person(p.coming ? p.name : 'osoba towarzysząca', 'osoba towarzysząca', { ...p, attending: p.coming }));
+  }
+  if (d.children) {
+    d.children.list.forEach((k) => people.push({ ...base, osoba: cell(k.name), typ: 'dziecko', obecny: 'tak', wiek: k.age }));
+  }
+  return people;
+}
+
 /** Jedna odpowiedź jako { nagłówek kolumny: wartość } (klucze = RESPONSE_HEADERS). */
 function toRecord(guest, d, createdAt, updatedAt, edits) {
-  const dietText = (g) => DIETS[g.diet] + (g.allergies ? ` (${g.allergies})` : '');
-  // Osoby z imienia → obecni / nieobecni / diety; "+1" i osoba towarzysząca z pytania → kolumny os_tow
-  const named = d.guests.filter((g) => !isPlusSlot(g.name));
-  const coming = named.filter((g) => g.attending);
-  const companions = d.guests
-    .filter((g) => isPlusSlot(g.name))
-    .map((g) => (g.attending ? { name: g.fullName, diet: dietText(g) } : null));
-  if (d.plusOne) companions.push(d.plusOne.coming ? { name: d.plusOne.name, diet: dietText(d.plusOne) } : null);
-  const companionsComing = companions.filter(Boolean);
-  const headcount =
-    d.guests.filter((g) => g.attending).length + (d.plusOne && d.plusOne.coming ? 1 : 0) + (d.children ? d.children.count : 0);
+  const people = toPeople(guest, d);
+  const coming = people.filter((p) => p.obecny === 'tak');
+  const kids = coming.filter((p) => p.typ === 'dziecko').length;
   return {
     token: guest.token,
-    nazwa: cell(guest.displayName),
+    zaproszenie: cell(guest.displayName),
     utworzono: createdAt,
     zmieniono: updatedAt,
     edycje: edits,
-    osoby_razem: headcount,
-    obecni: cell(coming.map((g) => g.name).join(', ')),
-    nieobecni: cell(named.filter((g) => !g.attending).map((g) => g.name).join(', ')),
-    diety: cell(coming.map((g) => `${g.name}: ${dietText(g)}`).join('; ')),
-    os_tow: cell(companions.length ? companionsComing.map((c) => c.name).join(', ') || 'nie' : ''),
-    os_tow_dieta: cell(companionsComing.map((c) => (companionsComing.length > 1 ? `${c.name}: ${c.diet}` : c.diet)).join('; ')),
-    dzieci_liczba: d.children ? d.children.count : '',
-    dzieci_wiek: d.children ? d.children.ages.join(', ') : '',
-    nocleg: d.accommodation === null ? '' : d.accommodation ? 'tak' : 'nie',
+    przychodzi: coming.length,
+    nie_przychodzi: people.length - coming.length,
+    dorosli: coming.length - kids,
+    dzieci: kids,
+    nocleg: yesNo(d.accommodation),
     komentarz: cell(d.comment),
     json: JSON.stringify(d),
   };
@@ -291,22 +349,22 @@ function notify(guest, d, isUpdate) {
   const to = CONFIG.NOTIFY_EMAILS.filter((m) => /@/.test(m) && !/TWOJ-EMAIL|EMAIL-ANI/.test(m));
   if (!to.length) return;
   const r = toRecord(guest, d, '', '', 0);
-  const lines = [
-    `${guest.displayName} — ${isUpdate ? 'ZMIANA odpowiedzi' : 'nowe potwierdzenie'}`,
-    '',
-    `Przychodzą: ${r.obecni || '—'}`,
-    `Nie przychodzą: ${r.nieobecni || '—'}`,
-    `Diety: ${r.diety || '—'}`,
-  ];
-  if (r.os_tow) lines.push(`Osoba towarzysząca: ${r.os_tow}${r.os_tow_dieta ? ' — ' + r.os_tow_dieta : ''}`);
-  if (d.children) lines.push(`Dzieci: ${d.children.count}${d.children.count ? ' (wiek: ' + r.dzieci_wiek + ')' : ''}`);
-  if (d.accommodation !== null) lines.push(`Nocleg: ${r.nocleg}`);
+  const people = toPeople(guest, d);
+  const label = (p) => p.osoba + (p.typ === 'gość' ? '' : p.typ === 'dziecko' ? ` (dziecko, ${p.wiek} l.)` : ` (${p.typ})`);
+  const coming = people.filter((p) => p.obecny === 'tak');
+  const notComing = people.filter((p) => p.obecny !== 'tak');
+  const lines = [`${guest.displayName} — ${isUpdate ? 'ZMIANA odpowiedzi' : 'nowe potwierdzenie'}`, ''];
+  lines.push(`Przychodzą (${coming.length}):`);
+  coming.forEach((p) => lines.push(`  • ${label(p)}${p.dieta ? ' — ' + p.dieta : ''}${p.alergie ? ', alergie: ' + p.alergie : ''}`));
+  if (!coming.length) lines.push('  —');
+  if (notComing.length) lines.push('', `Nie przychodzą: ${notComing.map(label).join(', ')}`);
+  if (d.accommodation !== null) lines.push('', `Nocleg: ${r.nocleg}`);
   if (d.comment) lines.push('', `Wiadomość: ${d.comment}`);
-  lines.push('', `Razem osób: ${r.osoby_razem}`, '', SpreadsheetApp.getActive().getUrl());
+  lines.push('', SpreadsheetApp.getActive().getUrl());
   try {
     MailApp.sendEmail({
       to: to.join(','),
-      subject: `[Wesele] ${guest.displayName} — ${isUpdate ? 'zmiana' : 'RSVP'} (${r.osoby_razem} os.)`,
+      subject: `[Wesele] ${guest.displayName} — ${isUpdate ? 'zmiana' : 'RSVP'} (${r.przychodzi} os.)`,
       body: lines.join('\n'),
     });
   } catch (err) {
@@ -325,15 +383,10 @@ function onOpen() {
 }
 
 function setupSheets() {
-  const ss = SpreadsheetApp.getActive();
-  const make = (name, headers) => {
-    const sh = ss.getSheetByName(name) || ss.insertSheet(name);
-    if (sh.getLastRow() === 0) sh.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
-    sh.setFrozenRows(1);
-    return sh;
-  };
-  const guests = make(CONFIG.GUESTS_SHEET, GUEST_HEADERS);
-  make(CONFIG.RESPONSES_SHEET, RESPONSE_HEADERS);
+  const guests = ensureSheet(CONFIG.GUESTS_SHEET, GUEST_HEADERS);
+  ensureSheet(CONFIG.RESPONSES_SHEET, RESPONSE_HEADERS);
+  ensureSheet(CONFIG.PEOPLE_SHEET, PEOPLE_HEADERS);
+  setupSummary();
   const col = headerIndex(guests);
   ['nocleg', 'osoba_tow', 'dzieci'].forEach((h) => guests.getRange(2, col[h] + 1, 300, 1).insertCheckboxes());
   if (guests.getLastRow() < 2) {
@@ -341,6 +394,32 @@ function setupSheets() {
   }
   clearGuestsCache();
   SpreadsheetApp.getUi().alert('Gotowe. Uzupełnij arkusz „Goście”: nazwa = forma z zaproszenia (np. „Lucynę i Michała Foberów”), osoby = imiona po przecinku.');
+}
+
+/** Arkusz „Podsumowanie”: same formuły liczone z „Osób” (nadpisywany przy każdym „Przygotuj arkusze”). */
+function setupSummary() {
+  const ss = SpreadsheetApp.getActive();
+  const sh = ss.getSheetByName(CONFIG.SUMMARY_SHEET) || ss.insertSheet(CONFIG.SUMMARY_SHEET);
+  const o = `'${CONFIG.PEOPLE_SHEET}'`;
+  const g = `'${CONFIG.GUESTS_SHEET}'`;
+  const r = `'${CONFIG.RESPONSES_SHEET}'`;
+  sh.clear();
+  sh.getRange(1, 1, 8, 2).setValues([
+    ['Przychodzi łącznie', `=COUNTIF(${o}!E2:E, "tak")`],
+    ['— dorośli', `=COUNTIFS(${o}!E2:E, "tak", ${o}!D2:D, "<>dziecko")`],
+    ['— dzieci', `=COUNTIFS(${o}!E2:E, "tak", ${o}!D2:D, "dziecko")`],
+    ['Nie przychodzi', `=COUNTIF(${o}!E2:E, "nie")`],
+    ['Osoby z noclegiem', `=COUNTIFS(${o}!E2:E, "tak", ${o}!I2:I, "tak")`],
+    ['Zaproszenia z odpowiedzią', `=COUNTA(${r}!A2:A)`],
+    ['Zaproszenia bez odpowiedzi', `=COUNTA(${g}!A2:A) - COUNTA(${r}!A2:A)`],
+    ['', ''],
+  ]);
+  sh.getRange('A10').setValue('Diety (osoby obecne)').setFontWeight('bold');
+  sh.getRange('A11').setFormula(`=IFERROR(QUERY(${o}!C2:I, "select F, count(C) where E = 'tak' and F <> '' group by F label F 'dieta', count(C) 'osób'", 0), "brak")`);
+  sh.getRange('D10').setValue('Alergie / uwagi').setFontWeight('bold');
+  sh.getRange('D11').setFormula(`=IFERROR(QUERY(${o}!C2:I, "select C, G where E = 'tak' and G <> ''", 0), "brak")`);
+  sh.getRange('A1:A7').setFontWeight('bold');
+  sh.autoResizeColumns(1, 5);
 }
 
 function generateLinks() {

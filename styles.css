@@ -253,7 +253,7 @@ select {
 }
 textarea { min-height: 92px; resize: vertical; border: 1px solid var(--hair); padding: 10px; background: #fff; }
 input:focus, select:focus, textarea:focus { outline: none; border-color: var(--ink); }
-.ages { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 12px; }
+.kid { display: grid; grid-template-columns: 1fr 72px; gap: 14px; align-items: end; }
 
 .err { color: var(--error); font-size: 15px; text-align: center; }
 

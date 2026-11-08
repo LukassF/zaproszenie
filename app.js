@@ -23,6 +23,9 @@
         : "Osoba towarzysząca"
       : g.name;
   const MAX_CHILDREN = 6;
+  // Starsze odpowiedzi miały tylko wiek dzieci (ages), nowe mają listę z imionami
+  const kidsOf = (c) =>
+    c.list || (c.ages || []).map((age) => ({ name: "", age }));
   const TRANSPORT_INFO =
     "Zapewniamy zorganizowany transport dla gości. Liczba miejsc parkingowych jest ograniczona, dlatego bardzo prosimy o skorzystanie z niego zamiast przyjazdu własnym samochodem.";
 
@@ -350,10 +353,10 @@
           { "data-when": "any" },
           h("legend", {}, "Dzieci"),
           h("label", { class: "field" }, h("span", {}, "Liczba dzieci"), count),
-          h("div", { class: "ages", id: "ages" }),
+          h("div", { class: "stack", id: "kids" }),
         ),
       );
-      count.addEventListener("change", renderAges);
+      count.addEventListener("change", renderKids);
     }
 
     form.append(
@@ -405,26 +408,47 @@
     form.addEventListener("change", syncVisibility);
   }
 
-  function renderAges(prev) {
-    const box = form.querySelector("#ages");
+  // Dla każdego dziecka: imię i nazwisko + wiek; wpisane już wartości zostają przy zmianie liczby
+  function renderKids(prev) {
+    const box = form.querySelector("#kids");
     const n = Number(form.elements.kids.value);
-    const old = [...box.querySelectorAll("input")].map((i) => i.value);
+    const old = [...box.querySelectorAll(".kid")].map((row) => ({
+      name: row.querySelector('input[type="text"]').value,
+      age: row.querySelector('input[type="number"]').value,
+    }));
     const values = Array.isArray(prev) ? prev : old;
     box.replaceChildren(
       ...Array.from({ length: n }, (_, i) =>
         h(
-          "label",
-          { class: "field" },
-          h("span", {}, `Wiek dziecka ${n > 1 ? i + 1 : ""}`.trim()),
-          h("input", {
-            type: "number",
-            name: `kid-${i}`,
-            min: 0,
-            max: 17,
-            inputmode: "numeric",
-            required: true,
-            value: values[i] ?? "",
-          }),
+          "div",
+          { class: "kid" },
+          h(
+            "label",
+            { class: "field" },
+            h("span", {}, `Imię i nazwisko dziecka ${n > 1 ? i + 1 : ""}`.trim()),
+            h("input", {
+              type: "text",
+              name: `kid-${i}-name`,
+              maxlength: 100,
+              required: true,
+              autocomplete: "off",
+              value: (values[i] && values[i].name) || "",
+            }),
+          ),
+          h(
+            "label",
+            { class: "field" },
+            h("span", {}, "Wiek"),
+            h("input", {
+              type: "number",
+              name: `kid-${i}-age`,
+              min: 0,
+              max: 17,
+              inputmode: "numeric",
+              required: true,
+              value: values[i] ? values[i].age ?? "" : "",
+            }),
+          ),
         ),
       ),
     );
@@ -476,7 +500,7 @@
     }
     if (invite.flags.children && r.children) {
       form.elements.kids.value = String(r.children.count);
-      renderAges(r.children.ages);
+      renderKids(kidsOf(r.children));
     }
     if (invite.flags.accommodation && typeof r.accommodation === "boolean")
       setRadio("stay", r.accommodation ? "yes" : "no");
@@ -522,9 +546,10 @@
         const count = Number(form.elements.kids.value);
         out.children = {
           count,
-          ages: Array.from({ length: count }, (_, i) =>
-            Number(val(`kid-${i}`)),
-          ),
+          list: Array.from({ length: count }, (_, i) => ({
+            name: val(`kid-${i}-name`),
+            age: Number(val(`kid-${i}-age`)),
+          })),
         };
       }
       if (invite.flags.accommodation)
@@ -589,7 +614,9 @@
       items.push([
         "Dzieci",
         r.children.count
-          ? `${r.children.count} (wiek: ${r.children.ages.join(", ")})`
+          ? kidsOf(r.children)
+              .map((k) => `${k.name || "dziecko"} (${k.age} l.)`)
+              .join(", ")
           : "brak",
       ]);
     if (typeof r.accommodation === "boolean")
