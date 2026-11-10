@@ -271,12 +271,12 @@
             `att-${i}`,
             many
               ? [
-                  ["yes", "Przyjdzie"],
-                  ["no", "Nie przyjdzie"],
+                  ["yes", "Będzie z nami"],
+                  ["no", "Niestety nie będzie"],
                 ]
               : [
-                  ["yes", "Przyjdę"],
-                  ["no", "Nie przyjdę"],
+                  ["yes", "Będę z Wami"],
+                  ["no", "Niestety mnie nie będzie"],
                 ],
           ),
           h(
@@ -450,7 +450,11 @@
           h(
             "label",
             { class: "field" },
-            h("span", {}, `Imię i nazwisko dziecka ${n > 1 ? i + 1 : ""}`.trim()),
+            h(
+              "span",
+              {},
+              `Imię i nazwisko dziecka ${n > 1 ? i + 1 : ""}`.trim(),
+            ),
             h("input", {
               type: "text",
               name: `kid-${i}-name`,
@@ -471,7 +475,7 @@
               max: 17,
               inputmode: "numeric",
               required: true,
-              value: values[i] ? values[i].age ?? "" : "",
+              value: values[i] ? (values[i].age ?? "") : "",
             }),
           ),
         ),
