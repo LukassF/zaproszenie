@@ -1,6 +1,6 @@
 # Zaproszenie + RSVP — Ania & Łukasz, 19.08.2027
 
-Strona z formularzem potwierdzenia przybycia (w stylu papierowego zaproszenia). Goście dojazdu nie wybierają, widzą tylko informację o zorganizowanym transporcie.
+Strona z formularzem potwierdzenia przybycia (w stylu papierowego zaproszenia). Goście zaznaczają, czy skorzystają z organizowanego transportu (miejsc jest mało).
 Odpowiedzi trafiają do Arkusza Google, a Wy dostajecie maila po każdym potwierdzeniu lub zmianie.
 
 ```
@@ -73,9 +73,9 @@ Kody QR generuje zewnętrzny serwis api.qrserver.com, który widzi więc same li
 
 Trzy arkusze, które skrypt wypełnia sam:
 
-- **Osoby**: jeden wiersz = jeden człowiek (gość, osoba towarzysząca albo dziecko): `osoba`, `typ`, `obecny` (tak/nie), `dieta`, `alergie`, `wiek` (dzieci), `nocleg`. To jest lista do cateringu, rozsadzenia i noclegów: filtruj po `obecny = tak`. Przy zmianie odpowiedzi wiersze danego zaproszenia są podmieniane w tym samym miejscu.
+- **Osoby**: jeden wiersz = jeden człowiek (gość, osoba towarzysząca albo dziecko): `osoba`, `typ`, `obecny` (tak/nie), `dieta`, `alergie`, `wiek` (dzieci), `nocleg`, `transport`. To jest lista do cateringu, rozsadzenia i noclegów: filtruj po `obecny = tak`. Przy zmianie odpowiedzi wiersze danego zaproszenia są podmieniane w tym samym miejscu.
 - **Odpowiedzi**: jeden wiersz = jedno zaproszenie: same liczby (`przychodzi`, `dorosli`, `dzieci`, `nie_przychodzi`), `nocleg`, `komentarz`, licznik `edycje`. Kolumna `json` to pełna odpowiedź, z której strona wypełnia formularz przy edycji, więc jej nie usuwaj.
-- **Podsumowanie**: formuły: ile osób przychodzi (dorośli / dzieci), ile ma nocleg, ile zaproszeń czeka na odpowiedź, liczba osób na każdą dietę i lista alergii. Odtwarza się przy każdym **Zaproszenia → 1. Przygotuj arkusze**.
+- **Podsumowanie**: formuły: ile osób przychodzi (dorośli / dzieci), ile ma nocleg, ile jedzie transportem, ile zaproszeń czeka na odpowiedź, liczba osób na każdą dietę i lista alergii. Odtwarza się przy każdym **Zaproszenia → 1. Przygotuj arkusze**.
 
 W „Osobach” i „Odpowiedziach” wartości trafiają do kolumn według nagłówków. Nie zmieniaj nazw nagłówków ani kolejności kolumn w „Osobach”, bo „Podsumowanie” liczy po literach kolumn.
 

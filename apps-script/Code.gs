@@ -23,16 +23,16 @@ const CONFIG = {
 };
 
 // Zmieniaj przy każdej zmianie kodu: odpowiedź backendu to pokazuje, więc widać, czy wdrożona jest nowa wersja.
-const BACKEND_VERSION = '2026-11-08 telefon';
+const BACKEND_VERSION = '2026-11-15 transport';
 
 const GUEST_HEADERS = ['token', 'nazwa', 'osoby', 'nocleg', 'osoba_tow', 'dzieci', 'link', 'qr', 'notatki'];
 // Odpowiedzi: jeden wiersz na zaproszenie (same liczby + json do edycji). Osoby: jeden wiersz na człowieka.
 const RESPONSE_HEADERS = [
   'token', 'zaproszenie', 'telefon', 'utworzono', 'zmieniono', 'edycje', 'przychodzi', 'nie_przychodzi', 'dorosli',
-  'dzieci', 'nocleg', 'komentarz', 'json',
+  'dzieci', 'nocleg', 'transport', 'komentarz', 'json',
 ];
-// Kolejność ma znaczenie dla formuł w „Podsumowaniu” (E = obecny, D = typ, F = dieta, I = nocleg)
-const PEOPLE_HEADERS = ['token', 'zaproszenie', 'osoba', 'typ', 'obecny', 'dieta', 'alergie', 'wiek', 'nocleg'];
+// Kolejność ma znaczenie dla formuł w „Podsumowaniu” (E = obecny, D = typ, F = dieta, I = nocleg, J = transport)
+const PEOPLE_HEADERS = ['token', 'zaproszenie', 'osoba', 'typ', 'obecny', 'dieta', 'alergie', 'wiek', 'nocleg', 'transport'];
 
 const DIETS = {
   standard: 'standardowa',
@@ -133,11 +133,13 @@ function sanitize(body, guest) {
     return out;
   });
   const any = guests.some((g) => g.attending);
-  const out = { guests, plusOne: null, children: null, accommodation: null, comment: str(body.comment, 1000) };
+  const out = { guests, plusOne: null, children: null, accommodation: null, transport: null, comment: str(body.comment, 1000) };
   if (!any) return out;
 
   out.phone = str(body.phone, 20);
   if (!/^\+?[0-9][0-9 ()\-]{6,18}$/.test(out.phone) || out.phone.replace(/\D/g, '').length < 7) throw validationError('phone');
+  // Niewymagane: strona sprzed tej zmiany (np. z pamięci przeglądarki) tego pola nie wysyła
+  if (typeof body.transport === 'boolean') out.transport = body.transport;
 
   if (guest.flags.plusOne) {
     const p = body.plusOne || {};
@@ -305,7 +307,7 @@ const yesNo = (v) => (v === null || v === undefined ? '' : v ? 'tak' : 'nie');
 
 /** Każda osoba z odpowiedzi osobno: goście z imienia, osoby towarzyszące, dzieci (klucze = PEOPLE_HEADERS). */
 function toPeople(guest, d) {
-  const base = { token: guest.token, zaproszenie: cell(guest.displayName), nocleg: yesNo(d.accommodation) };
+  const base = { token: guest.token, zaproszenie: cell(guest.displayName), nocleg: yesNo(d.accommodation), transport: yesNo(d.transport) };
   const person = (osoba, typ, g) => ({
     ...base,
     osoba: cell(osoba),
@@ -346,6 +348,7 @@ function toRecord(guest, d, createdAt, updatedAt, edits) {
     dorosli: coming.length - kids,
     dzieci: kids,
     nocleg: yesNo(d.accommodation),
+    transport: yesNo(d.transport),
     komentarz: cell(d.comment),
     json: JSON.stringify(d),
   };
@@ -369,6 +372,7 @@ function notify(guest, d, isUpdate) {
   const extra = [];
   if (d.phone) extra.push(`Telefon: ${d.phone}`);
   if (d.accommodation !== null) extra.push(`Nocleg: ${r.nocleg}`);
+  if (d.transport != null) extra.push(`Transport: ${d.transport ? 'tak' : 'nie, własny dojazd'}`);
   if (extra.length) lines.push('', ...extra);
   if (d.comment) lines.push('', `Wiadomość: ${d.comment}`);
   lines.push('', SpreadsheetApp.getActive().getUrl());
@@ -415,12 +419,13 @@ function setupSummary() {
   const g = `'${CONFIG.GUESTS_SHEET}'`;
   const r = `'${CONFIG.RESPONSES_SHEET}'`;
   sh.clear();
-  sh.getRange(1, 1, 8, 2).setValues([
+  sh.getRange(1, 1, 9, 2).setValues([
     ['Przychodzi łącznie', `=COUNTIF(${o}!E2:E, "tak")`],
     ['— dorośli', `=COUNTIFS(${o}!E2:E, "tak", ${o}!D2:D, "<>dziecko")`],
     ['— dzieci', `=COUNTIFS(${o}!E2:E, "tak", ${o}!D2:D, "dziecko")`],
     ['Nie przychodzi', `=COUNTIF(${o}!E2:E, "nie")`],
     ['Osoby z noclegiem', `=COUNTIFS(${o}!E2:E, "tak", ${o}!I2:I, "tak")`],
+    ['Osoby na transport', `=COUNTIFS(${o}!E2:E, "tak", ${o}!J2:J, "tak")`],
     ['Zaproszenia z odpowiedzią', `=COUNTA(${r}!A2:A)`],
     ['Zaproszenia bez odpowiedzi', `=COUNTA(${g}!A2:A) - COUNTA(${r}!A2:A)`],
     ['', ''],
@@ -429,7 +434,7 @@ function setupSummary() {
   sh.getRange('A11').setFormula(`=IFERROR(QUERY(${o}!C2:I, "select F, count(C) where E = 'tak' and F <> '' group by F label F 'dieta', count(C) 'osób'", 0), "brak")`);
   sh.getRange('D10').setValue('Alergie / uwagi').setFontWeight('bold');
   sh.getRange('D11').setFormula(`=IFERROR(QUERY(${o}!C2:I, "select C, G where E = 'tak' and G <> ''", 0), "brak")`);
-  sh.getRange('A1:A7').setFontWeight('bold');
+  sh.getRange('A1:A8').setFontWeight('bold');
   sh.autoResizeColumns(1, 5);
 }
 

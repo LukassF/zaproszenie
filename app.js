@@ -29,7 +29,7 @@
   const kidsOf = (c) =>
     c.list || (c.ages || []).map((age) => ({ name: "", age }));
   const TRANSPORT_INFO =
-    "Zapewniamy zorganizowany transport dla gości. Liczba miejsc parkingowych jest ograniczona, dlatego bardzo prosimy o skorzystanie z niego zamiast przyjazdu własnym samochodem.";
+    "Organizujemy transport dla gości. Liczba miejsc parkingowych i miejsc w busie jest ograniczona, dlatego prosimy o informację, czy skorzystacie z transportu.";
 
   const $ = (sel) => document.querySelector(sel);
   const statusEl = $("#rsvp-status");
@@ -367,6 +367,18 @@
         { "data-when": "any" },
         h("legend", {}, "Dojazd"),
         h("p", { class: "info" }, TRANSPORT_INFO),
+        pills(
+          "transport",
+          many
+            ? [
+                ["yes", "Skorzystamy z transportu"],
+                ["no", "Przyjedziemy własnym autem"],
+              ]
+            : [
+                ["yes", "Skorzystam z transportu"],
+                ["no", "Przyjadę własnym autem"],
+              ],
+        ),
       ),
     );
 
@@ -533,6 +545,8 @@
     }
     if (invite.flags.accommodation && typeof r.accommodation === "boolean")
       setRadio("stay", r.accommodation ? "yes" : "no");
+    if (typeof r.transport === "boolean")
+      setRadio("transport", r.transport ? "yes" : "no");
     if (r.phone) form.elements.phone.value = r.phone;
     form.elements.comment.value = r.comment || "";
   }
@@ -562,6 +576,7 @@
     };
     if (any) {
       out.phone = val("phone");
+      out.transport = radioValue("transport") === "yes";
       if (invite.flags.plusOne) {
         out.plusOne =
           radioValue("plus") === "yes"
@@ -652,6 +667,8 @@
       ]);
     if (typeof r.accommodation === "boolean")
       items.push(["Nocleg", r.accommodation ? "tak" : "nie"]);
+    if (typeof r.transport === "boolean")
+      items.push(["Transport", r.transport ? "tak" : "nie, własny dojazd"]);
     if (r.phone) items.push(["Telefon", r.phone]);
     if (r.comment) items.push(["Wiadomość", r.comment]);
     return h(
@@ -684,7 +701,6 @@
           justSaved ? "Zapisaliśmy Waszą odpowiedź" : "Wasza odpowiedź",
         ),
         describe(r),
-        anyComing ? h("p", { class: "info" }, TRANSPORT_INFO) : null,
         invite.updatedAt
           ? h("p", { class: "meta" }, `Zapisano ${fmtDate(invite.updatedAt)}`)
           : null,
